@@ -1,0 +1,528 @@
+// Schema para un bot de IA con LLM - Optimizado para Telegram con Function Calling (Sin Threads)
+// Versión Corregida
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["fullTextSearch", "fullTextIndex", "filterJson", "extendedWhereUnique"]
+}
+
+datasource db {
+  provider     = "mysql"
+  url          = env("DATABASE_URL")
+  relationMode = "prisma"
+}
+
+// Usuarios del sistema
+model User {
+  id        Int      @id @default(autoincrement())
+  uid       String   @unique @default(cuid())
+  username  String   @unique
+  email     String?  @unique // Email opcional para usuarios de Telegram
+  firstname String?  @default("")
+  lastname  String?  @default("")
+  nicename  String   @default("")
+  wallet    String?  @unique // Para integración con blockchain (Sin default explícito, será null si no se provee)
+  password  String? // Opcional para usuarios de Telegram
+  type      String   @default("User")
+  status    String   @default("Active")
+  language  String   @default("en")
+  metas     Json?    @default("{}")
+  // privateKey removido por seguridad
+  created   DateTime @default(now())
+  modified  DateTime @updatedAt
+
+  // Relaciones
+  telegramSessions TelegramSession[]
+  chats            Chat[]
+  messages         Message[]
+  functionCalls    FunctionCall[]
+  scheduledTasks   ScheduledTask[]
+  savedAddresses   SavedAddress[] // Para datos blockchain
+  routineScans     RoutineScan[] // Para monitoreo blockchain
+  commandPatterns  CommandPattern[]
+
+  @@index([username, status])
+  @@map("user")
+}
+
+// Sesiones de Telegram
+model TelegramSession {
+  id               Int      @id @default(autoincrement())
+  uid              String   @unique @default(cuid())
+  userId           Int      @map("user_id")
+  telegramId       BigInt   @unique @map("telegram_id")
+  telegramUsername String?  @map("telegram_username")
+  firstName        String?  @map("first_name")
+  lastName         String?  @map("last_name")
+  languageCode     String?  @map("language_code")
+  isBot            Boolean  @default(false) @map("is_bot")
+  isPremium        Boolean? @map("is_premium")
+  chatId           BigInt?  @map("chat_id")
+  chatType         String?  @map("chat_type") // private, group, supergroup, channel
+  chatTitle        String?  @map("chat_title")
+  contextData      Json     @default("{}") @map("context_data") // Datos de contexto para IA
+  sessionState     Json     @default("{}") @map("session_state") // Estado de la sesión
+  sessionData      Json     @default("{}") @map("session_data") // Datos completos del ctx
+  lastInteraction  DateTime @default(now()) @map("last_interaction")
+  status           String   @default("Active")
+  created          DateTime @default(now())
+  modified         DateTime @updatedAt
+
+  // Relaciones
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chats       Chat[]
+  memoryItems MemoryItem[]
+
+  @@index([telegramId])
+  @@index([userId, status])
+  @@index([lastInteraction, status])
+  @@map("telegram_session")
+}
+
+// Chat - Representación de una conversación
+model Chat {
+  id            Int      @id @default(autoincrement())
+  uid           String   @unique @default(cuid())
+  userId        Int      @map("user_id")
+  sessionId     Int?     @map("session_id") // Telegram Session ID
+  title         String?
+  summary       String?  @db.Text
+  status        String   @default("Active")
+  platform      String   @default("telegram")
+  chatContext   Json     @default("{}") @map("chat_context") // Contexto para IA
+  lastMessageAt DateTime @default(now()) @map("last_message_at")
+  messageCount  Int      @default(0) @map("message_count")
+  metas         Json?    @default("{}")
+  created       DateTime @default(now())
+  modified      DateTime @updatedAt
+
+  // Relaciones
+  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session       TelegramSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  messages      Message[]
+  memoryItems   MemoryItem[]
+  memoryObjects MemoryObject[]
+
+  @@index([userId, status])
+  @@index([sessionId, status])
+  @@index([lastMessageAt, status])
+  @@map("chat")
+}
+
+// Mensajes individuales
+model Message {
+  id                Int      @id @default(autoincrement())
+  uid               String   @unique @default(cuid())
+  chatId            Int      @map("chat_id")
+  userId            Int      @map("user_id")
+  text              String   @db.LongText
+  role              String // user, assistant, system, function
+  messageType       String   @default("text") @map("message_type") // text, photo, voice, document, etc.
+  telegramMessageId BigInt?  @map("telegram_message_id") // ID del mensaje en Telegram (Cambiado a BigInt)
+  tokens            Int      @default(0) // Contador de tokens para facturación
+  status            String   @default("Active")
+  metas             Json?    @default("{}")
+  attachmentId      Int?     @map("attachment_id")
+  created           DateTime @default(now())
+  modified          DateTime @updatedAt
+
+  // Relaciones
+  chat          Chat           @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  attachment    Attachment?    @relation(fields: [attachmentId], references: [id], onDelete: SetNull, onUpdate: Cascade) // Relación añadida
+  functionCalls FunctionCall[]
+  apiCall       ApiCall?       @relation(fields: [apiCallId], references: [id])
+  apiCallId     Int?           @map("api_call_id")
+
+  @@index([chatId, status])
+  @@index([userId, created])
+  @@map("message")
+}
+
+// Function Calling - Para acciones de IA
+model FunctionCall {
+  id              Int       @id @default(autoincrement())
+  uid             String    @unique @default(cuid())
+  userId          Int       @map("user_id")
+  messageId       Int       @map("message_id")
+  name            String // Nombre de la función
+  arguments       Json? // Argumentos de la función
+  result          Json? // Resultado de la función
+  error           String?   @db.Text // Error si falla
+  status          String    @default("pending") // pending, completed, failed
+  duration        Int? // Duración en ms
+  startTime       DateTime? @map("start_time")
+  endTime         DateTime? @map("end_time")
+  retryCount      Int       @default(0) @map("retry_count")
+  responseMessage String?   @db.Text @map("response_message") // Mensaje de respuesta
+  metas           Json?     @default("{}")
+  created         DateTime  @default(now())
+  modified        DateTime  @updatedAt
+
+  // Relaciones
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([messageId, status])
+  @@index([userId, status])
+  @@index([name, status])
+  @@map("function_call")
+}
+
+// Memoria de conversación (key-value)
+model MemoryItem {
+  id         Int       @id @default(autoincrement())
+  sessionId  Int?      @map("session_id")
+  chatId     Int?      @map("chat_id")
+  key        String // Clave del ítem de memoria
+  value      String    @db.Text // Valor almacenado
+  type       String    @default("string") // string, number, boolean, date, json
+  ttl        DateTime? // Time to live (opcional)
+  source     String? // Fuente del dato (user, system, llm, function)
+  confidence Float?    @default(1.0) // Nivel de confianza (0-1)
+  created    DateTime  @default(now())
+  modified   DateTime  @updatedAt
+
+  // Relaciones
+  session TelegramSession? @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  chat    Chat?            @relation(fields: [chatId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, key], name: "session_key_unique")
+  @@unique([chatId, key], name: "chat_key_unique")
+  @@index([ttl]) // Para limpieza eficiente
+  @@map("memory_item")
+}
+
+// Objetos complejos de memoria (estrategias, personas, etc.)
+model MemoryObject {
+  id         Int      @id @default(autoincrement())
+  uid        String   @unique @default(cuid())
+  chatId     Int      @map("chat_id")
+  objectType String // strategy, persona, plan, etc.
+  name       String
+  version    Int      @default(1)
+  data       Json
+  isActive   Boolean  @default(true) @map("is_active")
+  created    DateTime @default(now())
+  modified   DateTime @updatedAt
+
+  // Relaciones
+  chat Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+
+  @@index([chatId, objectType, isActive])
+  @@map("memory_object")
+}
+
+// Registros de llamadas a la API LLM
+model ApiCall {
+  id               Int      @id @default(autoincrement())
+  userId           Int?     @map("user_id")
+  provider         String   @default("openai") // openai, google, anthropic, etc.
+  model            String // gpt-4, gemini-pro, etc.
+  promptTokens     Int      @default(0) @map("prompt_tokens")
+  completionTokens Int      @default(0) @map("completion_tokens")
+  totalTokens      Int      @default(0) @map("total_tokens")
+  latencyMs        Int      @default(0) @map("latency_ms")
+  cost             Decimal  @default(0) // Cambiado a Decimal para precisión
+  requestData      Json?    @map("request_data") // Datos enviados
+  responseData     Json?    @map("response_data") // Datos recibidos (opcional)
+  success          Boolean  @default(true)
+  errorMessage     String?  @db.Text @map("error_message")
+  functionCalling  Boolean  @default(false) @map("function_calling") // Flag para función
+  timestamp        DateTime @default(now())
+
+  // Relaciones
+  messages Message[]
+
+  @@index([userId, timestamp])
+  @@index([model, success])
+  @@map("api_call")
+}
+
+// Tareas programadas (recordatorios, alertas)
+model ScheduledTask {
+  id             Int       @id @default(autoincrement())
+  uid            String    @unique @default(cuid())
+  userId         Int       @map("user_id")
+  taskType       String    @map("task_type") // reminder, alert, data-fetch, etc.
+  name           String
+  description    String?   @db.Text
+  cronExpression String?   @map("cron_expression") // Expresión cron (si aplica)
+  scheduledFor   DateTime? @map("scheduled_for") // Fecha específica (si aplica)
+  payload        Json // Datos para ejecutar la tarea
+  functionName   String?   @map("function_name") // Función a ejecutar
+  functionArgs   Json?     @map("function_args") // Argumentos de la función
+  telegramChatId BigInt?   @map("telegram_chat_id") // Para enviar mensajes a Telegram
+  lastRun        DateTime? @map("last_run")
+  nextRun        DateTime? @map("next_run")
+  status         String    @default("Pending") // Pending, Completed, Failed, Cancelled
+  recurrent      Boolean   @default(false)
+  retryCount     Int       @default(0) @map("retry_count")
+  maxRetries     Int       @default(3) @map("max_retries")
+  created        DateTime  @default(now())
+  modified       DateTime  @updatedAt
+
+  // Relaciones
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  taskExecutions TaskExecution[]
+
+  @@index([userId, status])
+  @@index([status, nextRun]) // Para procesamiento eficiente de crons
+  @@index([taskType, status])
+  @@map("scheduled_task")
+}
+
+// Ejecuciones de tareas programadas
+model TaskExecution {
+  id           Int       @id @default(autoincrement())
+  taskId       Int       @map("task_id")
+  startTime    DateTime  @default(now()) @map("start_time")
+  endTime      DateTime? @map("end_time")
+  status       String    @default("Running") // Running, Completed, Failed
+  result       Json?
+  errorMessage String?   @db.Text @map("error_message")
+  retryAttempt Int       @default(0) @map("retry_attempt")
+
+  // Relaciones
+  scheduledTask ScheduledTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, startTime])
+  @@index([status])
+  @@map("task_execution")
+}
+
+// Comandos de Telegram registrados
+model TelegramCommand {
+  id              Int      @id @default(autoincrement())
+  command         String   @unique // Nombre del comando sin "/"
+  description     String // Descripción para el comando en Telegram
+  isEnabled       Boolean  @default(true) @map("is_enabled")
+  handlerFunction String   @map("handler_function") // Nombre de la función que maneja este comando
+  functionCalling Boolean  @default(false) @map("function_calling") // Si usa function calling
+  requiredParams  Json?    @map("required_params") // Parámetros requeridos
+  promptTemplate  String?  @db.Text @map("prompt_template") // Template para generar el prompt
+  adminOnly       Boolean  @default(false) @map("admin_only")
+  created         DateTime @default(now())
+  modified        DateTime @updatedAt
+
+  @@index([isEnabled])
+  @@map("telegram_command")
+}
+
+// Media Attachments (para imágenes, audios, etc.)
+model Attachment {
+  id             Int      @id @default(autoincrement())
+  slug           String   @unique @db.VarChar(255)
+  name           String   @default("") @db.VarChar(255)
+  attachment     String   @default("") @db.VarChar(255) // Nombre del archivo - IMPORTANTE: Mantener este campo en 255 chars
+  url            String   @default("") @db.VarChar(255)
+  mime           String   @default("")
+  size           Int      @default(0)
+  source         String   @default("")
+  acl            String   @default("")
+  telegramFileId String?  @map("telegram_file_id") // ID de archivo en Telegram para reutilización
+  metas          Json?    @default("{}")
+  created        DateTime @default(now())
+  modified       DateTime @updatedAt
+
+  // Relaciones (Inversa definida en Message)
+  messages Message[]
+
+  @@index([mime, source])
+  @@index([telegramFileId])
+  @@map("attachment")
+}
+
+// Patrones de comandos personalizados
+model CommandPattern {
+  id             Int      @id @default(autoincrement())
+  userId         Int      @map("user_id")
+  pattern        String   @map("command_pattern") // Regex o patrón para detectar
+  name           String // Nombre amigable
+  description    String?  @db.Text
+  matchType      String   @default("regex") @map("match_type") // regex, exact, startsWith
+  responseType   String   @default("function") @map("response_type") // function, text, ai
+  functionName   String?  @map("function_name") // Si es function, nombre de la función
+  promptTemplate String?  @db.Text @map("prompt_template") // Si es ai, template para el prompt
+  responseText   String?  @db.Text @map("response_text") // Si es text, texto de respuesta
+  isActive       Boolean  @default(true) @map("is_active")
+  created        DateTime @default(now())
+  modified       DateTime @updatedAt
+
+  // Relaciones
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isActive])
+  @@map("command_pattern")
+}
+
+// Plantillas de prompts para IA
+model PromptTemplate {
+  id           Int      @id @default(autoincrement())
+  uid          String   @unique @default(cuid())
+  name         String
+  description  String?  @db.Text
+  systemPrompt String   @db.LongText @map("system_prompt")
+  userPrompt   String?  @db.LongText @map("user_prompt")
+  category     String   @default("general")
+  tags         Json? // Etiquetas para organizar
+  requiredVars Json?    @map("required_vars") // Variables requeridas
+  version      Int      @default(1)
+  isActive     Boolean  @default(true) @map("is_active")
+  created      DateTime @default(now())
+  modified     DateTime @updatedAt
+
+  @@index([category, isActive])
+  @@map("prompt_template")
+}
+
+// Registro de herramientas de función para IA
+model AiTool {
+  id              Int      @id @default(autoincrement())
+  name            String   @unique // Nombre de la función
+  description     String   @db.Text // Descripción para el LLM
+  parameters      Json // Esquema de parámetros (JSON Schema)
+  handlerFunction String   @map("handler_function") // Función real a ejecutar
+  category        String   @default("general")
+  isActive        Boolean  @default(true) @map("is_active")
+  created         DateTime @default(now())
+  modified        DateTime @updatedAt
+
+  @@index([category, isActive])
+  @@map("ai_tool")
+}
+
+// Configuraciones para blockchain y Vybe
+model BlockchainConfig {
+  id       Int      @id @default(autoincrement())
+  name     String   @unique
+  provider String // vybe, etherscan, etc.
+  apiKey   String?  @map("api_key")
+  network  String   @default("mainnet") // mainnet, testnet, etc.
+  baseUrl  String?  @map("base_url")
+  config   Json     @default("{}")
+  isActive Boolean  @default(true) @map("is_active")
+  created  DateTime @default(now())
+  modified DateTime @updatedAt
+
+  @@index([provider, isActive])
+  @@map("blockchain_config")
+}
+
+// Datos de blockchain de Vybe (cache)
+model VybeData {
+  id         Int      @id @default(autoincrement())
+  dataType   String   @map("data_type") // wallet, token, program, etc.
+  address    String // Dirección blockchain
+  data       Json // Datos recuperados
+  lastUpdate DateTime @default(now()) @map("last_update")
+  expiresAt  DateTime @map("expires_at")
+  source     String   @default("vybe") // vybe, onchain, etc.
+
+  @@unique([dataType, address])
+  @@index([dataType, address])
+  @@index([expiresAt])
+  @@map("vybe_data")
+}
+
+// Direcciones guardadas (para blockchain)
+model SavedAddress {
+  id          Int      @id @default(autoincrement())
+  uid         String   @unique @default(cuid())
+  userId      Int      @map("user_id")
+  label       String
+  address     String
+  description String?  @db.Text
+  network     String   @default("solana") // solana, ethereum, etc.
+  created     DateTime @default(now())
+  modified    DateTime @updatedAt
+
+  // Relaciones
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, network])
+  @@map("saved_address")
+}
+
+// Monitoreo rutinario (para blockchain)
+model RoutineScan {
+  id          Int       @id @default(autoincrement())
+  userId      Int       @map("user_id")
+  dataType    String    @map("data_type") // wallet, token, etc.
+  parameters  Json // Parámetros para el scan
+  frequency   String // daily, hourly, etc.
+  destination String // telegram, email, etc.
+  active      Boolean   @default(true)
+  lastScan    DateTime? @map("last_scan")
+  nextScan    DateTime? @map("next_scan")
+  created     DateTime  @default(now())
+  modified    DateTime  @updatedAt
+
+  // Relaciones
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, active])
+  @@index([dataType, active])
+  @@map("routine_scan")
+}
+
+// Configuración del bot
+model BotConfig {
+  id          Int      @id @default(autoincrement())
+  configKey   String   @unique @map("config_key")
+  configValue Json     @map("config_value")
+  description String?  @db.Text
+  isEncrypted Boolean  @default(false) @map("is_encrypted")
+  isActive    Boolean  @default(true) @map("is_active")
+  created     DateTime @default(now())
+  modified    DateTime @updatedAt
+
+  @@index([configKey, isActive])
+  @@map("bot_config")
+}
+
+// Sistema de logging
+model SystemLog {
+  id        Int      @id @default(autoincrement())
+  level     String // info, warning, error, debug
+  source    String // Componente que genera el log
+  message   String   @db.Text
+  details   Json? // Detalles adicionales
+  timestamp DateTime @default(now())
+
+  @@index([level, timestamp])
+  @@index([source, timestamp])
+  @@map("system_log")
+}
+
+model Token {
+  id                Int       @id @default(autoincrement())
+  uid               String    @unique @default(cuid())
+  address           String    @unique
+  name              String?
+  symbol            String?
+  decimals          Int?
+  logoURI           String?   @db.LongText
+  tags              String?   @default("[]")
+  dailyVolume       Float?    @map("daily_volume")
+  freezeAuthority   String?   @map("freeze_authority")
+  mintAuthority     String?   @map("mint_authority")
+  permanentDelegate String?   @map("permanent_delegate")
+  mintedAt          DateTime? @map("minted_at")
+  coingeckoId       String?   @map("coingecko_id")
+  metas             Json      @default("{}")
+
+  // Nuevos campos para tracking de embeddings
+  isEmbedded       Boolean   @default(false) @map("is_embedded")
+  embeddingId      String?   @map("embedding_id")
+  embeddingVector  String?   @map("embedding_vector") @db.LongText
+  embeddedAt       DateTime? @map("embedded_at")
+  embeddingStatus  String?   @default("pending") @map("embedding_status") // pending, success, failed
+  embeddingError   String?   @map("embedding_error") @db.Text
+  chromaCollection String?   @map("chroma_collection")
+
+  created  DateTime @default(now())
+  modified DateTime @updatedAt
+
+  @@map("tokens")
+}

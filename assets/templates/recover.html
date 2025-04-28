@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta
+		name="viewport"
+		content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0"
+	>
+	<meta http-equiv="X-UA-Compatible" content="ie=edge">
+	<title>Fearless - Recupera tu contraseña</title>
+
+	<style>
+
+		table {
+
+			font-family: -apple-system, 'SF Pro Display', 'Segoe UI', Roboto, 'Helvetica Neue', Ubuntu, sans-serif;
+		}
+
+		td {
+
+			border: 0;
+			margin: 0;
+			padding: 0;
+		}
+
+		.content-table td {
+
+			background: white;
+			color: #414552;
+		}
+
+		td.button {
+
+			background: #74C2A9;
+			color: white;
+			padding: 10px;
+			border-radius: 5px;
+			text-align: center;
+		}
+
+		td.button a {
+
+			display: block;
+			color: white;
+			text-decoration: none;
+		}
+
+		td.button a span {
+
+			color: white;
+			text-decoration: none;
+		}
+
+		.disclaimer {
+
+			font-size: 12px;
+			text-align: center;
+			color: #B69FF2;
+		}
+
+	</style>
+</head>
+<body>
+
+	<table style="width: 100%; background: #74C2A9; border-collapse: collapse;">
+		<tr>
+			<td height="100px" colspan="3">&nbsp;</td>
+		</tr>
+		<tr>
+			<td>&nbsp;</td>
+			<td style="width: 600px">
+				<table class="content-table" style="width: 600px; border-collapse: collapse;">
+					<tr>
+						<td
+							colspan="3"
+							style="height: 50px; border-top-left-radius: 16px; border-top-right-radius: 16px"
+						>&nbsp;
+						</td>
+					</tr>
+					<tr>
+						<td style="width: 30px;">&nbsp;</td>
+						<td>
+							<img
+								style="margin: 0 auto; display: block;"
+								src="cid:logo"
+								alt=""
+							>
+
+							<h2 style="font-size: 20px; margin-bottom: 5px; text-align: center;">¡Saludos {{firstname}}!</h2>
+							<p style="text-align: center;">Recibimos la instrucción de que deseas recuperar el acceso a tu cuenta.</p>
+							<p style="text-align: center;">Aquí tienes tu link mágico para acceder a tu cuenta:</p>
+
+							<table style="width: 100%;">
+								<tr>
+									<td class="button">
+										<a href="{{link}}"><span>Acceder a mi cuenta</span></a>
+									</td>
+								</tr>
+							</table>
+						</td>
+						<td style="width: 30px;">&nbsp;</td>
+					</tr>
+					<tr>
+						<td
+							colspan="3"
+							style="height: 50px; border-bottom-left-radius: 16px; border-bottom-right-radius: 16px"
+						>&nbsp;
+						</td>
+					</tr>
+				</table>
+			</td>
+			<td>&nbsp;</td>
+		</tr>
+
+		<tr>
+			<td height="10px" style="font-size: 1px; line-height: 1px;" colspan="3">&nbsp;</td>
+		</tr>
+
+		<tr>
+			<td>&nbsp;</td>
+			<td style="width: 600px">
+				<p class="disclaimer" style="color: white;">Este mensaje fue enviado automáticamente por
+					<strong>Fearless</strong>. Por favor, no respondas a este correo.</p>
+			</td>
+			<td>&nbsp;</td>
+		</tr>
+
+		<tr>
+			<td height="100px" colspan="3">&nbsp;</td>
+		</tr>
+	</table>
+
+</body>
+</html>
