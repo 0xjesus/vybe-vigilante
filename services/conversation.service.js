@@ -547,6 +547,28 @@ class ConversationService {
 						isActive: true,
 					},
 					{
+						'name': 'search_chat_history',
+						'description': 'Searches the history of the *current chat conversation* using semantic vector search to find past mentions, topics, or details based on user query. Use this *specifically* to answer questions about what was previously discussed or mentioned in *this specific chat*.',
+						'parameters': {
+							'type': 'object',
+							'properties': {
+								'query': {
+									'type': 'string',
+									'description': 'The natural language question or search phrase to find relevant parts of the conversation history.',
+								},
+								'limit': {
+									'type': 'integer',
+									'description': 'Optional. Maximum number of relevant conversation snippets to return. Default: 3.',
+									'default': 3,
+								},
+							},
+							'required': [ 'query' ],
+						},
+						'handlerFunction': 'actionSearchChatHistory', // Nuevo nombre de función handler
+						'category': 'Memory',
+						'isActive': true,
+					},
+					{
 						name: 'semantic_query',
 						description: 'Performs a natural language search (vector search) across previously stored conversation history or other indexed documents (e.g., data stored in ChromaDB). Useful for recalling past information, finding related context, or answering questions based on stored knowledge.',
 						parameters: {
@@ -1175,6 +1197,177 @@ class ConversationService {
 						handlerFunction: 'upsertMarketAnalysis',
 						category: 'Analysis',
 						isActive: true,
+					},
+					{
+						'name': 'get_user_name',
+						'description': 'Retrieves the user\'s previously stored name for the current chat.',
+						'parameters': { 'type': 'object', 'properties': {} },
+						'handlerFunction': 'actionGetUserName',
+						'category': 'User Profile',
+						'isActive': true,
+					},
+					{
+						'name': 'get_risk_tolerance',
+						'description': 'Retrieves the user\'s previously stored risk tolerance level (low, medium, high) for the current chat.',
+						'parameters': { 'type': 'object', 'properties': {} },
+						'handlerFunction': 'actionGetRiskTolerance',
+						'category': 'User Profile',
+						'isActive': true,
+					},
+					{
+						'name': 'get_investment_timeframe',
+						'description': 'Retrieves the user\'s previously stored investment timeframe preference (short, medium, long) for the current chat.',
+						'parameters': { 'type': 'object', 'properties': {} },
+						'handlerFunction': 'actionGetInvestmentTimeframe',
+						'category': 'User Profile',
+						'isActive': true,
+					},
+					{
+						'name': 'get_favorite_tokens',
+						'description': 'Retrieves the user\'s previously stored list of favorite or watched tokens for the current chat.',
+						'parameters': { 'type': 'object', 'properties': {} },
+						'handlerFunction': 'actionGetFavoriteTokens',
+						'category': 'User Profile',
+						'isActive': true,
+					},
+					{
+						'name': 'get_investment_goals',
+						'description': 'Retrieves the user\'s previously stored investment goals description for the current chat.',
+						'parameters': { 'type': 'object', 'properties': {} },
+						'handlerFunction': 'actionGetInvestmentGoals',
+						'category': 'User Profile',
+						'isActive': true,
+					},
+					{
+						'name': 'get_trading_experience',
+						'description': 'Retrieves the user\'s previously stored trading experience level (beginner, intermediate, advanced) for the current chat.',
+						'parameters': { 'type': 'object', 'properties': {} },
+						'handlerFunction': 'actionGetTradingExperience',
+						'category': 'User Profile',
+						'isActive': true,
+					},
+					{
+						'name': 'get_notification_preferences',
+						'description': 'Retrieves the user\'s previously stored notification preferences for the current chat.',
+						'parameters': { 'type': 'object', 'properties': {} },
+						'handlerFunction': 'actionGetNotificationPreferences',
+						'category': 'User Profile',
+						'isActive': true,
+					},
+					{
+						'name': 'get_trading_strategies',
+						'description': 'Retrieves previously saved trading strategies for the user. Can optionally filter by strategy name.',
+						'parameters': {
+							'type': 'object',
+							'properties': {
+								'name': {
+									'type': 'string',
+									'description': 'Optional. The exact or partial name of the strategy to retrieve.',
+								},
+								'limit': {
+									'type': 'integer',
+									'description': 'Optional. Maximum number of strategies to return. Default: 5.',
+									'default': 5,
+								},
+							},
+							'required': [],
+						},
+						'handlerFunction': 'actionGetTradingStrategies',
+						'category': 'Strategies',
+						'isActive': true,
+					},
+					{
+						'name': 'get_token_watchlists',
+						'description': 'Retrieves previously saved token watchlists for the user. Can optionally filter by watchlist name.',
+						'parameters': {
+							'type': 'object',
+							'properties': {
+								'name': {
+									'type': 'string',
+									'description': 'Optional. The exact or partial name of the watchlist to retrieve.',
+								},
+								'limit': {
+									'type': 'integer',
+									'description': 'Optional. Maximum number of watchlists to return. Default: 5.',
+									'default': 5,
+								},
+							},
+							'required': [],
+						},
+						'handlerFunction': 'actionGetTokenWatchlists',
+						'category': 'Watchlists',
+						'isActive': true,
+					},
+					{
+						'name': 'get_portfolio_plans',
+						'description': 'Retrieves previously saved portfolio allocation plans for the user. Can optionally filter by plan name.',
+						'parameters': {
+							'type': 'object',
+							'properties': {
+								'name': {
+									'type': 'string',
+									'description': 'Optional. The exact or partial name of the portfolio plan to retrieve.',
+								},
+								'limit': {
+									'type': 'integer',
+									'description': 'Optional. Maximum number of plans to return. Default: 5.',
+									'default': 5,
+								},
+							},
+							'required': [],
+						},
+						'handlerFunction': 'actionGetPortfolioPlans',
+						'category': 'Portfolio',
+						'isActive': true,
+					},
+					{
+						'name': 'get_trade_setups',
+						'description': 'Retrieves previously saved trade setups for the user. Can optionally filter by token symbol or status.',
+						'parameters': {
+							'type': 'object',
+							'properties': {
+								'token': {
+									'type': 'string',
+									'description': 'Optional. Filter trade setups for a specific token symbol.',
+								},
+								'status': {
+									'type': 'string',
+									'description': 'Optional. Filter trade setups by their status.',
+									'enum': [ 'planned', 'active', 'completed', 'canceled' ],
+								},
+								'limit': {
+									'type': 'integer',
+									'description': 'Optional. Maximum number of setups to return. Default: 10.',
+									'default': 10,
+								},
+							},
+							'required': [],
+						},
+						'handlerFunction': 'actionGetTradeSetups',
+						'category': 'Trading',
+						'isActive': true,
+					},
+					{
+						'name': 'get_market_analyses',
+						'description': 'Retrieves previously saved market analysis records. Can optionally filter by title.',
+						'parameters': {
+							'type': 'object',
+							'properties': {
+								'title': {
+									'type': 'string',
+									'description': 'Optional. The exact or partial title of the analysis to retrieve.',
+								},
+								'limit': {
+									'type': 'integer',
+									'description': 'Optional. Maximum number of analyses to return. Default: 5.',
+									'default': 5,
+								},
+							},
+							'required': [],
+						},
+						'handlerFunction': 'actionGetMarketAnalyses',
+						'category': 'Analysis',
+						'isActive': true,
 					},
 				],
 			};
@@ -2208,7 +2401,7 @@ Response: Bitcoin BTC Ethereum ETH
 			// 6. Process search results
 
 			const result = {
-				searchResults: searchResults.documents
+				searchResults: searchResults.documents,
 			};
 
 			this.logger.info(`Token results: ${ JSON.stringify(result, null, 2) }`);
@@ -2388,7 +2581,7 @@ Response: Bitcoin BTC Ethereum ETH
 
 			// Add name filter if provided
 			if(name) {
-				whereClause.name = { contains: name};
+				whereClause.name = { contains: name };
 			}
 
 			// Query the database
@@ -2562,7 +2755,7 @@ Choose the most appropriate tool(s) for the user's request.`;
 			const basicContext = await this.buildBasicContext(currentChatId);
 			this.logger.info('Basic context built for preliminary phases');
 			/// basic context is
-			this.logger.info("basicContext is: ", basicContext);
+			this.logger.info('basicContext is: ', basicContext);
 			// --- 2. Memory Consultation Phase ---
 			this.reportProgress('memory_consultation', 'Checking memory and history');
 			// Process with memory tools only
@@ -2571,7 +2764,7 @@ Choose the most appropriate tool(s) for the user's request.`;
 			);
 			this.logger.info('Memory consultation completed', {
 				memoryItemsFound: memoryResults?.memoryItemsFound || {},
-				memoryObjectsFound: memoryResults.memoryObjects?.length || {  },
+				memoryObjectsFound: memoryResults.memoryObjects?.length || {},
 			});
 
 			// --- 3. Token Resolution Phase ---
@@ -2583,7 +2776,7 @@ Choose the most appropriate tool(s) for the user's request.`;
 				userId, currentChatId, message, basicContext,
 			);
 			this.logger.info('Token resolution completed', {
-				resolvedTokensCount: tokenResults || {}
+				resolvedTokensCount: tokenResults || {},
 			});
 
 			/// print the full token resolution context
@@ -2596,9 +2789,9 @@ Choose the most appropriate tool(s) for the user's request.`;
 				currentChatId, userId, memoryResults, tokenResults,
 			);
 
-			this.logger.info("==============================================================================")
+			this.logger.info('==============================================================================');
 			this.logger.info('Enhanced context built with memory and token data:', enhancedContext);
-			this.logger.info("==============================================================================")
+			this.logger.info('==============================================================================');
 			// --- 5. Main AI Consultation (with all Vybe tools) ---
 			this.logger.info('Step 5: Main AI Consultation');
 			this.reportProgress('main_consultation', 'Processing your request');
@@ -2614,10 +2807,10 @@ Choose the most appropriate tool(s) for the user's request.`;
 
 			let initialContent = '';
 			let toolCalls = null;
-			this.logger.info("==============================================================================")
-			this.logger.info("===========================FIRST AI RESPONSE==================================")
+			this.logger.info('==============================================================================');
+			this.logger.info('===========================FIRST AI RESPONSE==================================');
 			this.logger.info('Raw AI Response:', firstAiResponse);
-			this.logger.info("==============================================================================")
+			this.logger.info('==============================================================================');
 			if(firstAiResponse.choices && firstAiResponse.choices[0]?.message) {
 				const responseMessage = firstAiResponse.choices[0].message;
 				initialContent = responseMessage.content || '';
@@ -2649,7 +2842,7 @@ Choose the most appropriate tool(s) for the user's request.`;
 				// 7b. Execute Tools
 				this.logger.info('Executing tool calls...');
 				executedActions = await this.executeToolCalls(toolCalls, currentChatId, userId, placeholderMessage.id);
-				this.logger.info("Respuesta de ejecutar toolcalls:", executedActions)
+				this.logger.info('Respuesta de ejecutar toolcalls:', executedActions);
 
 				// --- 8. Second AI Call (Synthesis with JSON Mode) ---
 				this.logger.info('Step 8: Synthesis');
@@ -2873,7 +3066,7 @@ This step is crucial for the main assistant to use correct token addresses.`;
 			this.logger.info('Received token resolution response');
 
 			// 4. Process token resolution tool calls if any
-			let tokenResults = []
+			let tokenResults = [];
 			if(tokenResponse.choices && tokenResponse.choices[0]?.message?.tool_calls) {
 				const toolCalls = tokenResponse.choices[0].message.tool_calls;
 				this.logger.info(`Processing ${ toolCalls.length } token resolution tool calls`);
@@ -2883,12 +3076,12 @@ This step is crucial for the main assistant to use correct token addresses.`;
 
 				// Execute token resolution tool
 				const tokenActions = await this.executeToolCalls(toolCalls, chatId, userId, placeholderMsg.id);
-				this.logger.info('Token resolution tool calls executed.',  tokenActions);
+				this.logger.info('Token resolution tool calls executed.', tokenActions);
 				// Extract token resolution results
 				for(const action of tokenActions) {
 					if(action.name === 'resolve_token_addresses' && action.result?.success) {
-						this.logger.info("Token resolution action result:", action.result);
-						tokenResults.push(tokenActions)
+						this.logger.info('Token resolution action result:', action.result);
+						tokenResults.push(tokenActions);
 					}
 				}
 
@@ -3112,7 +3305,7 @@ This step is crucial for the main assistant to use correct token addresses.`;
 					} else {
 						// Normal action execution
 						actionResult = await this.executeAction(functionCallRecord.id, functionName, parsedArgs, chatId, userId); // Logs internally
-						this.logger.info("------------------>Executed action result:", actionResult);
+						this.logger.info('------------------>Executed action result:', actionResult);
 						await this.updateFunctionCallResult(functionCallRecord.id, actionResult); // Logs internally
 						executedActions.push({ name: functionName, result: actionResult });
 						this.logger.info(`Result for ${ functionName }:`, actionResult);
@@ -3637,6 +3830,9 @@ If the user asks about investments, recommendations, or "what to invest in," YOU
 				case 'semantic_query':
 					resultPayload = await this.actionSemanticQuery(args);
 					break;
+				case 'search_chat_history': // <--- NUEVO CASE
+					resultPayload = await this.actionSearchChatHistory(args, chatId); // Pasa el chatId!
+					break;
 				case 'evaluate_query_intent':
 					resultPayload = await this.actionEvaluateQueryIntent(args, chatId);
 					break;
@@ -3743,6 +3939,27 @@ If the user asks about investments, recommendations, or "what to invest in," YOU
 					break;
 				case 'upsert_market_analysis':
 					resultPayload = await this.upsertMarketAnalysis(chatId, args);
+					break;
+				case 'get_user_name':
+					resultPayload = await this.actionGetUserName(args, chatId);
+					break;
+				case 'get_risk_tolerance':
+					resultPayload = await this.actionGetRiskTolerance(args, chatId);
+					break;
+				case 'get_investment_timeframe':
+					resultPayload = await this.actionGetInvestmentTimeframe(args, chatId);
+					break;
+				case 'get_favorite_tokens':
+					resultPayload = await this.actionGetFavoriteTokens(args, chatId);
+					break;
+				case 'get_investment_goals':
+					resultPayload = await this.actionGetInvestmentGoals(args, chatId);
+					break;
+				case 'get_trading_experience':
+					resultPayload = await this.actionGetTradingExperience(args, chatId);
+					break;
+				case 'get_notification_preferences':
+					resultPayload = await this.actionGetNotificationPreferences(args, chatId);
 					break;
 				default:
 					this.logger.error(`Action ${ actionName } not implemented.`);
@@ -4042,13 +4259,13 @@ If the user asks about investments, recommendations, or "what to invest in," YOU
 	 * Action: Fetch wallet data
 	 */
 	async actionFetchWalletData(args) {
-		this.logger.info("")
+		this.logger.info('');
 		const functionName = 'actionFetchWalletData';
 		this.logger.entry(functionName, { args });
 		const { wallet_address, include_tokens = true, include_nfts = true } = args;
-		this.logger.info("const wallet_address = ", wallet_address)
-		this.logger.info("const include_tokens = ", include_tokens)
-		this.logger.info("const include_nfts = ", include_nfts)
+		this.logger.info('const wallet_address = ', wallet_address);
+		this.logger.info('const include_tokens = ', include_tokens);
+		this.logger.info('const include_nfts = ', include_nfts);
 		if(!wallet_address) {
 			this.logger.error('Wallet address is required.', { args });
 			throw new Error('Wallet address is required for fetch_wallet_data action');
@@ -4815,7 +5032,7 @@ JSON Response:`;
 		const functionName = 'actionFetchTopTokens';
 		this.logger.entry(functionName, { args });
 		let { sort_by = 'marketCap', order = 'asc', limit = '10', page = '1' } = args;
-		limit = 10
+		limit = 10;
 		try {
 			this.logger.info(`Fetching top tokens sorted by ${ sort_by } in ${ order } order...`);
 
@@ -6228,6 +6445,262 @@ JSON Response:`;
 			this.logger.exit(functionName, { error: true });
 			throw new Error(`Failed to compare tokens: ${ error.message }`);
 		}
+	}
+
+	/**
+	 * Action: Search the current chat's vector history.
+	 * @param {object} args - Arguments { query, limit? }
+	 * @param {number} chatId - The ID of the current chat.
+	 * @returns {Promise<object>} Search results.
+	 */
+	async actionSearchChatHistory(args, chatId) {
+		const functionName = 'actionSearchChatHistory';
+		this.logger.entry(functionName, { args, chatId });
+		const { query: searchQuery, limit = 3 } = args;
+
+		if(!searchQuery) {
+			this.logger.error('Search query is required.', { args });
+			throw new Error('Query is required for search_chat_history action');
+		}
+		if(!chatId) {
+			this.logger.error('Chat ID is required to target the correct collection.', { args });
+			throw new Error('Internal Error: Chat ID missing for chat history search.');
+		}
+
+		// --- Lógica Clave: Encontrar la colección correcta del chat ---
+		let targetCollectionName = null;
+		try {
+			this.logger.info(`Finding vector collection for chat ID: ${ chatId }`);
+			const collections = await ChromaService.listCollections();
+			// Busca colecciones que sigan el patrón 'chat-<chatId>-<timestamp>'
+			const chatCollections = collections
+				.filter(name => name.startsWith(`chat-${ chatId }-`))
+				.sort() // Ordena para obtener la más reciente (asumiendo timestamp al final)
+				.reverse(); // La más reciente primero
+
+			if(chatCollections.length > 0) {
+				targetCollectionName = chatCollections[0]; // Usa la más reciente
+				this.logger.info(`Found target chat collection: '${ targetCollectionName }'`);
+			} else {
+				this.logger.warn(`No specific vector collection found for chat ${ chatId }. Cannot perform history search.`);
+				// Decide cómo manejar esto: ¿error o resultado vacío?
+				// Devolver resultado vacío es más seguro para el flujo.
+				return {
+					query: searchQuery,
+					collection_searched: `chat-${ chatId }-* (Not Found)`,
+					results: [],
+					info: 'No indexed conversation history found for this chat yet.',
+				};
+			}
+		} catch(error) {
+			this.logger.error(`Failed to list or find Chroma collections for chat ${ chatId }`, error);
+			throw new Error(`Failed to access chat history collection: ${ error.message }`);
+		}
+		// --- Fin Lógica Clave ---
+
+		try {
+			this.logger.info(`Performing semantic search in '${ targetCollectionName }' for query: "${ searchQuery }" (limit ${ limit })`);
+
+			// (El resto es similar a actionSemanticQuery pero con la colección correcta)
+			this.logger.info('Instantiating OpenAI embedding function for chat search...');
+			if(!process.env.OPENAI_API_KEY) {
+				throw new Error('Missing OpenAI API Key configuration.');
+			}
+			const embeddingFunction = new OpenAIEmbeddingFunction({
+				openai_api_key: process.env.OPENAI_API_KEY,
+				openai_model: ConversationService.TOKEN_EMBEDDING_MODEL, // Asegúrate que coincida con el usado en createSearchCollection
+			});
+
+			this.logger.info(`Getting collection '${ targetCollectionName }' with embedding function...`);
+			const chromaCollection = await ChromaService.client.getCollection({
+				name: targetCollectionName,
+				embeddingFunction: embeddingFunction,
+			});
+
+			this.logger.info('Executing ChromaDB query on chat history...');
+			const results = await chromaCollection.query({
+				queryTexts: [ searchQuery ],
+				nResults: parseInt(limit) || 3,
+				include: [ 'documents', 'metadatas', 'distances' ],
+			});
+			this.logger.info('Raw Chroma query results received from chat history.');
+
+			let formattedResults = [];
+			if(results && results.ids && results.ids.length > 0 && results.ids[0].length > 0) {
+				const count = results.ids[0].length;
+				formattedResults = results.ids[0].map((id, i) => ({
+					id: id,
+					snippet: results.documents?.[0]?.[i] ?? null, // Renombrar 'document' a 'snippet' es más claro
+					metadata: results.metadatas?.[0]?.[i] ?? null,
+					relevance_score: 1 - (results.distances?.[0]?.[i] ?? 1), // Convertir distancia a score (0 a 1)
+				}));
+				this.logger.info(`Chat history query found ${ count } relevant snippets.`);
+				this.logger.info('Formatted chat history results:', formattedResults);
+			} else {
+				this.logger.info('Chat history query returned no results.');
+			}
+
+			const finalResult = {
+				query: searchQuery,
+				collection_searched: targetCollectionName,
+				limit: parseInt(limit) || 3,
+				results: formattedResults,
+			};
+
+			this.logger.success(`Chat history search completed successfully.`);
+			this.logger.exit(functionName);
+			return finalResult;
+
+		} catch(error) {
+			this.logger.error(`Failed during chat history semantic query in '${ targetCollectionName }': ${ error.message }`, error);
+			this.logger.exit(functionName, { error: true });
+			throw new Error(`Failed to search chat history: ${ error.message }`);
+		}
+	}
+
+	async _getMemoryItemByKey(chatId, key) {
+		const functionName = '_getMemoryItemByKey';
+		this.logger.entry(functionName, { chatId, key });
+		try {
+			const memoryItem = await this.prisma.memoryItem.findUnique({
+				where: { chat_key_unique: { chatId, key } },
+			});
+
+			if(!memoryItem) {
+				this.logger.info(`Memory item with key '${ key }' not found for chat ${ chatId }.`);
+				this.logger.exit(functionName, { found: false });
+				// Devolver un objeto estándar indicando que no se encontró
+				return {
+					key: key,
+					value: null,
+					found: false,
+					message: `No value found for '${ key }'.`,
+				};
+			}
+
+			let parsedValue = memoryItem.value;
+			try {
+				if(memoryItem.type === 'json') {
+					parsedValue = JSON.parse(memoryItem.value);
+				} else if(memoryItem.type === 'number') {
+					const num = parseFloat(memoryItem.value);
+					// Solo parsea si es un número válido, si no, mantenlo como string
+					if(!isNaN(num)) parsedValue = num;
+				} else if(memoryItem.type === 'boolean') {
+					parsedValue = memoryItem.value.toLowerCase() === 'true';
+				}
+			} catch(e) {
+				this.logger.warn(`Failed to parse value for memory item key '${ key }' (type: ${ memoryItem.type }). Returning as string.`, e);
+				parsedValue = memoryItem.value; // Fallback a string si falla el parseo
+			}
+
+			const result = {
+				key: memoryItem.key,
+				value: parsedValue, // Devuelve el valor parseado
+				type: memoryItem.type,
+				found: true,
+				last_modified: memoryItem.modified.toISOString(),
+			};
+			this.logger.success(`Retrieved memory item for key '${ key }'.`);
+			this.logger.exit(functionName, { found: true, type: result.type });
+			return result;
+
+		} catch(error) {
+			this.logger.error(`Error retrieving memory item for key '${ key }'`, error);
+			this.logger.exit(functionName, { error: true });
+			// Devolver un objeto de error consistente
+			return {
+				key: key,
+				value: null,
+				found: false,
+				error: `Failed to retrieve memory item '${ key }': ${ error.message }`,
+			};
+		}
+	}
+
+	// --- NUEVAS FUNCIONES GET para Perfil Simple ---
+	// Estas funciones simplemente llaman al helper con la clave correcta.
+	// Aceptan 'args' por consistencia con executeAction, pero no lo usan.
+
+	/**
+	 * Action: Retrieve the user's stored name.
+	 */
+	async actionGetUserName(args, chatId) {
+		const functionName = 'actionGetUserName';
+		this.logger.entry(functionName, { chatId });
+		const result = await this._getMemoryItemByKey(chatId, 'user_name');
+		this.logger.exit(functionName, { found: result?.found });
+		return result; // Devuelve el objeto { key, value, type, found, ... } o null/error
+	}
+
+	/**
+	 * Action: Retrieve the user's stored risk tolerance.
+	 */
+	async actionGetRiskTolerance(args, chatId) {
+		const functionName = 'actionGetRiskTolerance';
+		this.logger.entry(functionName, { chatId });
+		const result = await this._getMemoryItemByKey(chatId, 'risk_tolerance');
+		this.logger.exit(functionName, { found: result?.found });
+		return result;
+	}
+
+	/**
+	 * Action: Retrieve the user's stored investment timeframe.
+	 */
+	async actionGetInvestmentTimeframe(args, chatId) {
+		const functionName = 'actionGetInvestmentTimeframe';
+		this.logger.entry(functionName, { chatId });
+		const result = await this._getMemoryItemByKey(chatId, 'investment_timeframe');
+		this.logger.exit(functionName, { found: result?.found });
+		return result;
+	}
+
+	/**
+	 * Action: Retrieve the user's stored favorite tokens list.
+	 */
+	async actionGetFavoriteTokens(args, chatId) {
+		const functionName = 'actionGetFavoriteTokens';
+		this.logger.entry(functionName, { chatId });
+		// El helper _getMemoryItemByKey ya se encarga de parsear el JSON
+		const result = await this._getMemoryItemByKey(chatId, 'favorite_tokens');
+		this.logger.exit(functionName, { found: result?.found });
+		// Si se encontró, result.value será un array; si no, será null.
+		return result;
+	}
+
+	/**
+	 * Action: Retrieve the user's stored investment goals.
+	 */
+	async actionGetInvestmentGoals(args, chatId) {
+		const functionName = 'actionGetInvestmentGoals';
+		this.logger.entry(functionName, { chatId });
+		const result = await this._getMemoryItemByKey(chatId, 'investment_goals');
+		this.logger.exit(functionName, { found: result?.found });
+		return result;
+	}
+
+	/**
+	 * Action: Retrieve the user's stored trading experience level.
+	 */
+	async actionGetTradingExperience(args, chatId) {
+		const functionName = 'actionGetTradingExperience';
+		this.logger.entry(functionName, { chatId });
+		const result = await this._getMemoryItemByKey(chatId, 'trading_experience');
+		this.logger.exit(functionName, { found: result?.found });
+		return result;
+	}
+
+	/**
+	 * Action: Retrieve the user's stored notification preferences.
+	 */
+	async actionGetNotificationPreferences(args, chatId) {
+		const functionName = 'actionGetNotificationPreferences';
+		this.logger.entry(functionName, { chatId });
+		// El helper _getMemoryItemByKey ya se encarga de parsear el JSON
+		const result = await this._getMemoryItemByKey(chatId, 'notification_preferences');
+		this.logger.exit(functionName, { found: result?.found });
+		// Si se encontró, result.value será un objeto; si no, será null.
+		return result;
 	}
 
 }

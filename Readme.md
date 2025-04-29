@@ -177,7 +177,7 @@ The bot is built with a modular architecture for clarity and maintainability:
   * **`ConversationService`:** The central orchestrator. It manages the conversation flow, interacts with the AI service, manages the multi-layered **memory system** (context, key-value, objects, semantic), handles **tool execution** logic, calls other services (Vybe, Chroma), and prepares the final response data.
   * **`AIService`:** A wrapper around the LLM provider's API (e.g., OpenAI). Handles sending prompts, history, tools, and receiving responses, including JSON mode and function calls.
   * **`VybeService`:** Interacts specifically with the Vybe Network API to fetch real-time Solana data.
-  * **`ChromaService`:** (If implemented) Manages interactions with the ChromaDB vector database for semantic search and token resolution.
+  * **`ChromaService`:**  Manages interactions with the ChromaDB vector database for semantic search and token resolution.
   * **`PrismaClient`:** Provides type-safe database access to manage users, chats, messages, memory items, memory objects, function calls, etc., based on the defined `schema.prisma`.
 
 **Schema Highlights & Memory:**
@@ -226,4 +226,4 @@ Experience the power of AI-driven Solana insights:
 
 **[Start Chatting with @vybe\_v\_bot on Telegram](https://www.google.com/url?sa=E&source=gmail&q=https://t.me/vybe_v_bot)**
 
-```
+
