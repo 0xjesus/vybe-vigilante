@@ -79,70 +79,6 @@ class ConversationService {
 						isActive: true,
 					},
 					{
-						name: 'remember_info',
-						description: 'Stores a piece of important information provided by the user (like their name, preferences, goals, risk tolerance) in the bot\'s short-term memory for recall within the current conversation context. Use this when the user states a specific fact about themselves or their preferences that might be relevant later in the chat.',
-						parameters: {
-							type: 'object',
-							properties: {
-								key: {
-									type: 'string',
-									description: 'A unique name identifying the piece of information (e.g., "user_name", "favorite_token", "risk_tolerance", "investment_goal"). Use snake_case.',
-								},
-								value: {
-									type: 'string', // Store as string, parsing happens in the action
-									description: 'The actual information value to store.',
-								},
-								source: {
-									type: 'string',
-									description: 'Optional. Where the information came from (e.g., "user", "llm"). Default: "llm".',
-								},
-								confidence: {
-									type: 'number',
-									description: 'Optional. Confidence level (0.0 to 1.0) in the accuracy of the information. Default: 1.0.',
-								},
-							},
-							required: [ 'key', 'value' ],
-						},
-						handlerFunction: 'actionRememberInfo',
-						category: 'Memory',
-						isActive: true,
-					},
-					{
-						name: 'create_strategy',
-						description: 'Creates and saves a new investment or monitoring strategy definition based on user specifications. Use this when the user explicitly asks to create or define a strategy, plan, or set of rules for monitoring assets.',
-						parameters: {
-							type: 'object',
-							properties: {
-								name: {
-									type: 'string',
-									description: 'A unique and descriptive name for the strategy (e.g., "My Solana Growth Portfolio", "Monitor New Meme Coins").',
-								},
-								description: {
-									type: 'string',
-									description: 'A detailed explanation of the strategy\'s goals, methods, and purpose.',
-								},
-								tokens: {
-									type: 'array',
-									items: { type: 'string' },
-									description: 'A list of token symbols or mint addresses the strategy focuses on (e.g., ["SOL", "JUP", "PYTH"]).',
-								},
-								rules: {
-									type: 'string',
-									description: 'Optional. Specific conditions, rules, or triggers for the strategy (e.g., "Buy when RSI < 30 on daily chart", "Sell if price drops 10% from entry", "Alert if volume exceeds 1M USD").',
-								},
-								timeframe: {
-									type: 'string',
-									description: 'The intended duration or outlook of the strategy.',
-									enum: [ 'short-term', 'medium-term', 'long-term', 'ongoing' ],
-								},
-							},
-							required: [ 'name', 'description', 'tokens', 'timeframe' ],
-						},
-						handlerFunction: 'actionCreateStrategy',
-						category: 'Strategies',
-						isActive: true,
-					},
-					{
 						name: 'fetch_token_data',
 						description: 'Retrieves comprehensive details for a specific Solana token using its mint address. Provides information like name, symbol, current price, supply, market cap, 24h volume, etc. Use this when the user asks for general information, price, or details about a *specific* token.',
 						parameters: {
@@ -168,7 +104,7 @@ class ConversationService {
 						handlerFunction: 'actionFetchTokenData',
 						category: 'Token Info',
 						isActive: true,
-					},
+					}, // testeado
 					{
 						name: 'fetch_token_price_history',
 						description: 'Fetches historical Open-High-Low-Close (OHLC) price data for a specific Solana token, typically used for charting or analyzing past price movements over time.',
@@ -203,7 +139,7 @@ class ConversationService {
 						handlerFunction: 'actionFetchTokenPriceHistory',
 						category: 'Token Info',
 						isActive: true,
-					},
+					}, // testeado
 					{
 						name: 'fetch_token_holders_data',
 						description: 'Retrieves a list of top holders for a specific Solana token, showing wallet addresses and their corresponding balances. Useful for understanding token distribution and identifying large holders (\'whales\').',
@@ -230,7 +166,7 @@ class ConversationService {
 						handlerFunction: 'actionFetchTokenHoldersData',
 						category: 'Token Info',
 						isActive: true,
-					},
+					}, // testeado
 					{
 						name: 'fetch_wallet_data',
 						description: 'Fetches a comprehensive overview of a specific Solana wallet address, optionally including its current SPL token balances and NFT holdings.',
@@ -257,7 +193,7 @@ class ConversationService {
 						handlerFunction: 'actionFetchWalletData',
 						category: 'Wallet Info',
 						isActive: true,
-					},
+					}, // testeado
 					{
 						name: 'fetch_wallet_pnl',
 						description: 'Calculates and retrieves the realized and unrealized Profit and Loss (PnL) performance analysis for a specific Solana wallet over a specified number of past days. Useful for understanding the wallet\'s investment performance.',
@@ -278,7 +214,7 @@ class ConversationService {
 						handlerFunction: 'actionFetchWalletPnl',
 						category: 'Wallet Info',
 						isActive: true,
-					},
+					}, // -----
 					{
 						name: 'fetch_token_transfers',
 						description: 'Retrieves a list of historical transfer transactions for a specific SPL token. Allows filtering by sender/receiver wallet, transfer amount (in USD), and time range.',
@@ -325,17 +261,17 @@ class ConversationService {
 						handlerFunction: 'actionFetchTokenTransfers',
 						category: 'Token Info',
 						isActive: true,
-					},
+					}, // -----
 					{
 						name: 'fetch_top_tokens',
-						description: 'Gets a ranked list of Solana tokens based on specified criteria like market capitalization, 24-hour trading volume, price change, or number of holders. Useful for discovering trending, significant, or highly-ranked tokens in the ecosystem.',
+						description: 'Gets a ranked list of Solana tokens based on specified criteria like market capitalization, 24-hour trading volume, price change, or number of holders. Useful for discovering trending, significant, or highly-ranked tokens in the ecosystem.Valid sorts for this endpoint are: mintAddress, currentSupply, current_supply, marketCap, market_cap, name, price, price1d, price_1d, price7d, price_7d, symbol',
 						parameters: {
 							type: 'object',
 							properties: {
 								sort_by: {
 									type: 'string',
-									description: 'The metric to sort the tokens by. Common values: "marketCap", "volume_24h", "price_change_24h", "holders". Check Vybe API documentation for all valid fields. Default: "marketCap".',
-									enum: [ 'marketCap', 'volume_24h', 'price_change_24h', 'holders' ], // Add other valid fields from Vybe docs
+									description: 'The metric to sort the tokens by. Common values: "marketCap", "price_change_24h", "holders"',
+									enum: [ 'marketCap', 'price_change_24h', 'holders' ], // Add other valid fields from Vybe docs
 									default: 'marketCap',
 								},
 								order: {
@@ -360,7 +296,7 @@ class ConversationService {
 						handlerFunction: 'actionFetchTopTokens',
 						category: 'Market Info',
 						isActive: true,
-					},
+					}, // testeado
 					{
 						name: 'fetch_program_details',
 						description: 'Retrieves detailed information and basic metrics about a specific Solana program (smart contract) using its Program ID (address).',
@@ -377,7 +313,7 @@ class ConversationService {
 						handlerFunction: 'actionFetchProgramDetails',
 						category: 'Program Info',
 						isActive: true,
-					},
+					}, // testeado
 					{
 						name: 'fetch_program_active_users',
 						description: 'Gets a list of the most active user wallets interacting with a specific Solana program over a defined recent period (e.g., last 7 days).',
@@ -404,7 +340,7 @@ class ConversationService {
 						handlerFunction: 'actionFetchProgramActiveUsers',
 						category: 'Program Info',
 						isActive: true,
-					},
+					}, // testeado
 					{
 						name: 'fetch_program_tvl',
 						description: 'Retrieves the historical Total Value Locked (TVL) time series data for a specific Solana DeFi program, showing how much value is locked in the protocol over time.',
@@ -427,7 +363,7 @@ class ConversationService {
 						handlerFunction: 'actionFetchProgramTvl',
 						category: 'Program Info',
 						isActive: true,
-					},
+					}, // -----
 					{
 						name: 'fetch_program_ranking',
 						description: 'Gets a ranked list of Solana programs based on certain metrics provided by the Vybe API (e.g., activity, TVL growth). Useful for discovering popular or significant programs.',
@@ -450,7 +386,7 @@ class ConversationService {
 						handlerFunction: 'actionFetchProgramRanking',
 						category: 'Program Info',
 						isActive: true,
-					},
+					}, // testeado
 					{
 						name: 'fetch_market_info',
 						description: 'Retrieves information about a specific trading market (e.g., a SOL/USDC liquidity pool) on a Solana DEX or AMM, identified by its unique market ID (address).',
@@ -471,7 +407,7 @@ class ConversationService {
 						handlerFunction: 'actionFetchMarketInfo',
 						category: 'Market Info',
 						isActive: true,
-					},
+					}, // -----
 					{
 						name: 'fetch_pair_ohlcv',
 						description: 'Fetches historical Open-High-Low-Close-Volume (OHLCV) candle data for a specific trading pair (defined by base and quote token mint addresses) across Solana DEXs/AMMs.',
@@ -515,7 +451,7 @@ class ConversationService {
 						handlerFunction: 'actionFetchPairOhlcv',
 						category: 'Market Info',
 						isActive: true,
-					},
+					}, // -----
 					{
 						name: 'analyze_token_trend',
 						description: 'Performs a trend analysis for a specific Solana token by fetching and summarizing historical data (like price, volume, or holders count) over a selected timeframe (day, week, month).',
@@ -543,7 +479,7 @@ class ConversationService {
 						handlerFunction: 'actionAnalyzeTokenTrend',
 						category: 'Analysis',
 						isActive: true,
-					},
+					}, // fix Vybe call
 					{
 						name: 'recommend_tokens',
 						description: 'Provides a list of recommended Solana tokens based on user-defined criteria such as market trends (trending), trading volume (volume), price growth (growth), risk level, and investment timeframe. **USE THIS ACTION when the user asks for investment ideas, recommendations, \'what should I invest in?\', or similar requests.**',
@@ -579,7 +515,7 @@ class ConversationService {
 						handlerFunction: 'actionRecommendTokens',
 						category: 'Recommendations',
 						isActive: true,
-					},
+					}, // testeado
 					{
 						name: 'schedule_alert',
 						description: 'Schedules a generic alert or reminder task to be executed at a later time or when a specific condition is met. Use this for custom reminders or checks not covered by \'create_price_alert\'. The \'condition\' parameter requires specific backend logic to evaluate.',
@@ -696,7 +632,7 @@ class ConversationService {
 						handlerFunction: 'actionGetKnownAccounts',
 						category: 'Account Info',
 						isActive: true,
-					},
+					}, // -----
 					{
 						name: 'get_wallet_tokens_time_series',
 						description: 'Retrieves the daily historical balances (snapshot at end of day) of all SPL tokens held by a specific Solana wallet, presented as a time series. Useful for tracking portfolio composition changes over time.',
@@ -718,7 +654,7 @@ class ConversationService {
 						handlerFunction: 'actionGetWalletTokensTimeSeries',
 						category: 'Wallet Info',
 						isActive: true,
-					},
+					}, // to test
 					{
 						name: 'get_token_transfers_analysis',
 						description: 'Analyzes patterns in the transfer history of a specific Solana token over a given time window. Can focus on total volume transferred, frequency of transfers, or identify \'whale\' activity (wallets involved in large or frequent transfers).',
@@ -752,7 +688,7 @@ class ConversationService {
 						handlerFunction: 'actionGetTokenTransfersAnalysis',
 						category: 'Analysis',
 						isActive: true,
-					},
+					}, // -----
 					{
 						name: 'get_price_prediction',
 						description: 'Generates a speculative price prediction for a specific Solana token for a future timeframe (e.g., 24h, 7d, 30d) based on historical price trends and volatility analysis. **Disclaimer: This is purely statistical and NOT financial advice.**',
@@ -781,7 +717,7 @@ class ConversationService {
 						handlerFunction: 'actionGetPricePrediction',
 						category: 'Analysis',
 						isActive: true,
-					},
+					}, // testeado
 					{
 						name: 'compare_tokens',
 						description: 'Compares two or more Solana tokens side-by-side across various selected metrics (like price, 24h volume, holder count, market cap, volatility) over a specified timeframe.',
@@ -809,7 +745,7 @@ class ConversationService {
 						handlerFunction: 'actionCompareTokens',
 						category: 'Analysis',
 						isActive: true,
-					},
+					}, // fix Vybe Call
 					// Memory retrieval action
 					{
 						name: 'retrieve_memory_items',
@@ -2168,8 +2104,8 @@ class ConversationService {
 		}
 
 		try {
-			// 1. Get tokens from database (for potential matches only, not for embeddings)
-			this.logger.debug('Fetching tokens from database for potential matches...');
+			// 1. Get tokens from database (for potential matches)
+			this.logger.info('Fetching tokens from database...');
 			const tokens = await this.prisma.token.findMany({
 				where: {
 					AND: [
@@ -2178,33 +2114,56 @@ class ConversationService {
 					],
 				},
 			});
-			this.logger.debug(`Found ${ tokens.length } tokens in database.`);
+			this.logger.info(`Found ${ tokens.length } tokens in database.`);
 
-			// 2. Get Chroma collection - assume it already exists with embeddings
-			this.logger.debug('Getting token collection from Chroma...');
-			const collectionName = 'token_resolution';
+			// 2. Initialize embedding function - this is crucial
+			this.logger.info('Initializing OpenAI embedding function...');
+			if(!process.env.OPENAI_API_KEY) {
+				this.logger.error('OpenAI API Key is missing.');
+				throw new Error('Missing OpenAI API Key configuration.');
+			}
+			const embeddingFunction = new OpenAIEmbeddingFunction({
+				openai_api_key: process.env.OPENAI_API_KEY,
+				openai_model: ConversationService.TOKEN_EMBEDDING_MODEL,
+			});
+			this.logger.info(`Embedding function created for model: ${ ConversationService.TOKEN_EMBEDDING_MODEL }.`);
+
+			// 3. Get the collection WITH the embedding function
+			this.logger.info('Getting Chroma collection with embedding function...');
+			const collectionName = 'token_resolution'; // Match what's in your script
 
 			let collection;
 			try {
-				// Try to get the existing collection
-				collection = await ChromaService.getCollection(collectionName);
-				this.logger.debug(`Using existing Chroma collection: ${ collection.name }`);
+				collection = await ChromaService.client.getCollection({
+					name: collectionName,
+					embeddingFunction: embeddingFunction, // This is key to fix the error
+				});
+				this.logger.info(`Successfully connected to Chroma collection: ${ collection.name }`);
 			} catch(error) {
-				// If collection doesn't exist, log a warning but continue without embeddings
-				this.logger.warn(`Token collection ${ collectionName } not found in Chroma. Semantic search will not be available.`, error);
-				// Return empty results as fallback, but still try text matching for potential tokens
-				const result = {
+				this.logger.error(`Failed to get Chroma collection: ${ error.message }`, error);
+				// Fall back to text-only matching
+				const potentialMatches = tokens
+					.filter(token =>
+						query.toLowerCase().includes(token.symbol?.toLowerCase()) ||
+						query.toLowerCase().includes(token.name?.toLowerCase()),
+					)
+					.slice(0, 5)
+					.map(token => ({
+						token_name: token.name,
+						token_symbol: token.symbol,
+						token_address: token.address,
+					}));
+
+				return {
 					original_query: query,
 					semantic_query: query,
 					resolved_tokens: [],
-					potential_tokens: this.findPotentialTokenMatches(tokens, query),
+					potential_tokens: potentialMatches,
 				};
-				this.logger.exit(functionName, { useSemanticSearch: false });
-				return result;
 			}
 
-			// 3. Generate a semantic query based on the user's input
-			this.logger.debug('Generating semantic query from user input...');
+			// 4. Generate semantic query with AI
+			this.logger.info('Generating optimized semantic query...');
 			const queryGenPrompt = `
 I need a semantic search query to find cryptocurrency tokens mentioned in the following text:
 "${ query }"
@@ -2232,57 +2191,27 @@ Response: Bitcoin BTC Ethereum ETH
 			let semanticQuery = '';
 			if(queryGenResponse.choices && queryGenResponse.choices[0]?.message?.content) {
 				semanticQuery = queryGenResponse.choices[0].message.content.trim();
-				this.logger.debug(`Generated semantic query: "${ semanticQuery }"`);
+				this.logger.info(`Generated semantic query: "${ semanticQuery }"`);
 			} else {
-				// Fallback to original query if AI processing fails
 				semanticQuery = query;
 				this.logger.warn(`Failed to generate semantic query, using original: "${ semanticQuery }"`);
 			}
 
-			// 4. Perform the semantic search using existing embeddings
-			this.logger.debug(`Performing semantic search with query: "${ semanticQuery }"`);
-			const searchResults = await ChromaService.queryCollection(
-				collection,
-				[ semanticQuery ],
-				parseInt(limit),
-				{}, // No additional where clause
-				[ 'documents', 'metadatas', 'distances' ],
-			);
+			// 5. Perform the semantic search directly on the collection with embedding function
+			this.logger.info(`Performing semantic search with query: "${ semanticQuery }"`);
+			const searchResults = await collection.query({
+				queryTexts: [ semanticQuery ],
+				nResults: parseInt(limit),
+				include: [ 'documents', 'metadatas', 'distances' ],
+			});
 
-			// 5. Format and return the results
-			const formattedResults = [];
-
-			if(searchResults && searchResults.ids && searchResults.ids[0] && searchResults.ids[0].length > 0) {
-				this.logger.debug(`Found ${ searchResults.ids[0].length } potential token matches.`);
-
-				for(let i = 0; i < searchResults.ids[0].length; i++) {
-					const metadata = searchResults.metadatas[0][i];
-					const distance = searchResults.distances[0][i];
-
-					formattedResults.push({
-						token_name: metadata.token_name,
-						token_symbol: metadata.token_symbol,
-						token_address: metadata.token_address,
-						similarity_score: 1 - distance, // Convert distance to similarity score
-						decimals: metadata.decimals,
-						tags: metadata.tags,
-					});
-				}
-			} else {
-				this.logger.warn('No token matches found in semantic search.');
-			}
-
-			// 6. Find potential tokens by simple text matching (fallback)
-			const potentialTokens = this.findPotentialTokenMatches(tokens, query, formattedResults);
+			// 6. Process search results
 
 			const result = {
-				original_query: query,
-				semantic_query: semanticQuery,
-				resolved_tokens: formattedResults,
-				potential_tokens: potentialTokens,
+				searchResults: searchResults.documents
 			};
 
-			this.logger.success(`Completed token resolution with ${ formattedResults.length } results`);
+			this.logger.info(`Token results: ${ JSON.stringify(result, null, 2) }`);
 			this.logger.exit(functionName);
 			return result;
 		} catch(error) {
@@ -2376,7 +2305,7 @@ Response: Bitcoin BTC Ethereum ETH
 					whereClause.key = query;
 				} else {
 					// Case-insensitive partial match
-					whereClause.key = { contains: query, mode: 'insensitive' };
+					whereClause.key = { contains: query };
 				}
 			}
 
@@ -2386,7 +2315,7 @@ Response: Bitcoin BTC Ethereum ETH
 				orderBy: { key: 'asc' },
 			});
 
-			this.logger.debug(`Found ${ memoryItems.length } memory items`);
+			this.logger.info(`Found ${ memoryItems.length } memory items`);
 
 			// Format items with proper type conversion
 			const formattedItems = memoryItems.map(item => {
@@ -2459,7 +2388,7 @@ Response: Bitcoin BTC Ethereum ETH
 
 			// Add name filter if provided
 			if(name) {
-				whereClause.name = { contains: name, mode: 'insensitive' };
+				whereClause.name = { contains: name};
 			}
 
 			// Query the database
@@ -2468,7 +2397,7 @@ Response: Bitcoin BTC Ethereum ETH
 				orderBy: { created: 'desc' },
 			});
 
-			this.logger.debug(`Found ${ memoryObjects.length } memory objects`);
+			this.logger.info(`Found ${ memoryObjects.length } memory objects`);
 
 			// Format objects for response
 			const formattedObjects = memoryObjects.map(obj => ({
@@ -2513,7 +2442,7 @@ Response: Bitcoin BTC Ethereum ETH
 		try {
 			// 1. Prepare memory-only tools
 			const memoryTools = this.formatMemoryOnlyTools();
-			this.logger.debug('Prepared memory-only tools', { toolCount: memoryTools.length });
+			this.logger.info('Prepared memory-only tools', { toolCount: memoryTools.length });
 
 			// 2. Build memory system prompt
 			const memorySystemPrompt = `You are an AI assistant specialized in memory recall.
@@ -2544,7 +2473,7 @@ Choose the most appropriate tool(s) for the user's request.`;
 				toolChoice: 'auto', // Let AI decide whether to use tools
 			});
 
-			this.logger.debug('Received memory consultation response');
+			this.logger.info('Received memory consultation response');
 
 			// 4. Process memory tool calls if any
 			let memoryResults = {
@@ -2576,7 +2505,7 @@ Choose the most appropriate tool(s) for the user's request.`;
 
 				// Delete the placeholder message
 				await this.prisma.message.delete({ where: { id: placeholderMsg.id } });
-				this.logger.debug('Deleted memory consultation placeholder message');
+				this.logger.info('Deleted memory consultation placeholder message');
 			}
 
 			this.logger.success('Memory consultation completed successfully');
@@ -2624,26 +2553,25 @@ Choose the most appropriate tool(s) for the user's request.`;
 			const chatInfo = await this.getOrCreateChat(userId, chatId, sessionId);
 			const currentChatId = chatInfo.id;
 			const chat = await this.prisma.chat.findUnique({ where: { id: currentChatId } });
-			this.logger.debug('Chat retrieved/created:', { chatId: currentChatId, new: !chatId });
+			this.logger.info('Chat retrieved/created:', { chatId: currentChatId, new: !chatId });
 
 			const userMessage = await this.saveMessage(currentChatId, userId, message, 'user');
-			this.logger.debug('User message saved:', { messageId: userMessage.id });
+			this.logger.info('User message saved:', { messageId: userMessage.id });
 
 			// Basic context for preliminary phases
 			const basicContext = await this.buildBasicContext(currentChatId);
-			this.logger.debug('Basic context built for preliminary phases');
-
+			this.logger.info('Basic context built for preliminary phases');
+			/// basic context is
+			this.logger.info("basicContext is: ", basicContext);
 			// --- 2. Memory Consultation Phase ---
-			this.logger.info('Step 2: Memory Consultation Phase');
 			this.reportProgress('memory_consultation', 'Checking memory and history');
-
 			// Process with memory tools only
 			const memoryResults = await this.processMemoryconsultation(
 				userId, currentChatId, message, basicContext,
 			);
-			this.logger.debug('Memory consultation completed', {
-				memoryItemsFound: memoryResults?.memoryItems?.length || 0,
-				memoryObjectsFound: memoryResults?.memoryObjects?.length || 0,
+			this.logger.info('Memory consultation completed', {
+				memoryItemsFound: memoryResults?.memoryItemsFound || {},
+				memoryObjectsFound: memoryResults.memoryObjects?.length || {  },
 			});
 
 			// --- 3. Token Resolution Phase ---
@@ -2654,9 +2582,12 @@ Choose the most appropriate tool(s) for the user's request.`;
 			const tokenResults = await this.processTokenResolution(
 				userId, currentChatId, message, basicContext,
 			);
-			this.logger.debug('Token resolution completed', {
-				resolvedTokensCount: tokenResults?.resolvedTokens?.length || 0,
+			this.logger.info('Token resolution completed', {
+				resolvedTokensCount: tokenResults || {}
 			});
+
+			/// print the full token resolution context
+			this.logger.info('Token resolution context tokenResults:', tokenResults);
 
 			// --- 4. Build Full Context with Results ---
 			this.logger.info('Step 4: Building Enhanced Context');
@@ -2664,14 +2595,16 @@ Choose the most appropriate tool(s) for the user's request.`;
 			const enhancedContext = await this.buildEnhancedContext(
 				currentChatId, userId, memoryResults, tokenResults,
 			);
-			this.logger.debug('Enhanced context built with memory and token data');
 
+			this.logger.info("==============================================================================")
+			this.logger.info('Enhanced context built with memory and token data:', enhancedContext);
+			this.logger.info("==============================================================================")
 			// --- 5. Main AI Consultation (with all Vybe tools) ---
 			this.logger.info('Step 5: Main AI Consultation');
 			this.reportProgress('main_consultation', 'Processing your request');
 
 			const firstAiRequest = this.buildAIRequest(enhancedContext, message);
-			this.logger.debug(`Built AI request for model: ${ firstAiRequest.model }`);
+			this.logger.info(`Built AI request for model: ${ firstAiRequest.model }`);
 
 			const firstAiResponse = await AIService.sendMessage(firstAiRequest);
 			this.logger.info('Received AI response.');
@@ -2681,15 +2614,17 @@ Choose the most appropriate tool(s) for the user's request.`;
 
 			let initialContent = '';
 			let toolCalls = null;
-
+			this.logger.info("==============================================================================")
+			this.logger.info("===========================FIRST AI RESPONSE==================================")
+			this.logger.info('Raw AI Response:', firstAiResponse);
+			this.logger.info("==============================================================================")
 			if(firstAiResponse.choices && firstAiResponse.choices[0]?.message) {
 				const responseMessage = firstAiResponse.choices[0].message;
 				initialContent = responseMessage.content || '';
 				toolCalls = responseMessage.tool_calls;
 				this.logger.info(`Initial content present: ${ !!initialContent }, Tool calls present: ${ !!toolCalls?.length }`);
-
 				if(toolCalls) {
-					this.logger.debug('Tool calls requested:', toolCalls.map(t => t.function.name));
+					this.logger.info('Tool calls requested:', toolCalls.map(t => t.function.name));
 				}
 			} else {
 				this.logger.warn('AI response structure unexpected or empty in first call.');
@@ -2707,14 +2642,14 @@ Choose the most appropriate tool(s) for the user's request.`;
 				this.reportProgress('executing_tools', `Running ${ toolCalls.length } actions`);
 
 				// 7a. Save Placeholder Message
-				this.logger.debug('Saving placeholder assistant message...');
+				this.logger.info('Saving placeholder assistant message...');
 				const placeholderMessage = await this.saveMessage(currentChatId, userId, '...', 'assistant');
-				this.logger.debug('Placeholder message saved:', { messageId: placeholderMessage.id });
+				this.logger.info('Placeholder message saved:', { messageId: placeholderMessage.id });
 
 				// 7b. Execute Tools
 				this.logger.info('Executing tool calls...');
 				executedActions = await this.executeToolCalls(toolCalls, currentChatId, userId, placeholderMessage.id);
-				this.logger.success('Tool calls executed.', { count: executedActions.length });
+				this.logger.info("Respuesta de ejecutar toolcalls:", executedActions)
 
 				// --- 8. Second AI Call (Synthesis with JSON Mode) ---
 				this.logger.info('Step 8: Synthesis');
@@ -2723,7 +2658,7 @@ Choose the most appropriate tool(s) for the user's request.`;
 				const synthesisSystemPrompt = `You are an AI assistant processing the results of tool executions.
 Your task is to analyze these results and generate a response ONLY in a valid JSON object format.
 This JSON object MUST contain exactly THREE keys:
-1.  "reply": A string containing your user-friendly, natural language response summarizing what you did, the key results, or reporting any errors encountered during tool execution. ALWAYS mention that data comes from Vybe Network API.
+1.  "reply": A string containing your user-friendly, natural language response summarizing a very useful response for the user, the key results..
 2.  "actionData": An object containing ALL relevant structured data from SUCCESSFUL actions, MAINTAINING ALL PROPERTIES from the original result, including ALL token recommendations.
 3.  "source": An object containing information about where the data comes from, e.g. {"api": "Vybe Network", "endpoint": "recommend_tokens", "timestamp": "${ new Date().toISOString() }"}.
 
@@ -2737,7 +2672,7 @@ Example JSON for a successful 'recommend_tokens' action:
 }
 
 IMPORTANT: NEVER truncate, summarize or modify the action data. Include ALL received recommendations with ALL fields.
-ALWAYS mention that data comes from Vybe Network API in the reply.
+IF the structured data has data from the Vybe Network mention that data comes from Vybe Network API in the reply if not do not mention it.
 Respond ONLY with the valid JSON object and nothing else.`;
 
 				// Build the main prompt content with the action results
@@ -2747,7 +2682,7 @@ Respond ONLY with the valid JSON object and nothing else.`;
 					synthesisPromptContent += `- Action: ${ action.name }\n  Result: ${ JSON.stringify(action.result) }\n`;
 				});
 
-				this.logger.debug('Built synthesis prompts for JSON mode.');
+				this.logger.info('Built synthesis prompts for JSON mode.');
 
 				// 8b. Make the second AI call using the defined prompts
 				this.logger.info('Sending synthesis request to AI (JSON Mode)...');
@@ -2758,7 +2693,7 @@ Respond ONLY with the valid JSON object and nothing else.`;
 					temperature: 0.4,
 					responseFormat: { type: 'json_object' },
 				});
-				this.logger.debug('Raw Synthesis AI Response:', synthesisResponse);
+				this.logger.info('Raw Synthesis AI Response:', synthesisResponse);
 
 				// 8c. Process Synthesis Response
 				this.logger.info('Processing synthesis response.');
@@ -2775,7 +2710,7 @@ Respond ONLY with the valid JSON object and nothing else.`;
 						finalContent = parsedJson.reply;
 						structuredData = parsedJson.actionData;
 						this.logger.success('Successfully parsed synthesis JSON.');
-						this.logger.debug('Parsed structured data:', structuredData);
+						this.logger.info('Parsed structured data:', structuredData);
 
 					} catch(e) {
 						this.logger.error('Failed to parse JSON from synthesis step or JSON structure invalid', e,
@@ -2796,7 +2731,7 @@ Respond ONLY with the valid JSON object and nothing else.`;
 				this.logger.info('Updating placeholder message with final synthesized content.');
 				this.reportProgress('finalizing', 'Completing your answer');
 				assistantMessage = await this.updateMessageContent(placeholderMessage.id, finalContent);
-				this.logger.debug('Assistant message updated.', { messageId: assistantMessage.id });
+				this.logger.info('Assistant message updated.', { messageId: assistantMessage.id });
 
 			} else {
 				// --- No Tool Calls: Save Initial Content Directly ---
@@ -2812,7 +2747,7 @@ Respond ONLY with the valid JSON object and nothing else.`;
 				}
 
 				assistantMessage = await this.saveMessage(currentChatId, userId, finalContent, 'assistant');
-				this.logger.debug('Saved final assistant message directly.', { messageId: assistantMessage.id });
+				this.logger.info('Saved final assistant message directly.', { messageId: assistantMessage.id });
 			}
 
 			// --- 9. Final Steps & Return ---
@@ -2820,7 +2755,7 @@ Respond ONLY with the valid JSON object and nothing else.`;
 
 			// Update chat stats after saving the final message
 			await this.updateChatStats(currentChatId);
-			this.logger.debug('Chat stats updated.');
+			this.logger.info('Chat stats updated.');
 
 			// Optional: Semantic indexing logic
 			if(chat && chat.messageCount % 10 === 0) {
@@ -2848,7 +2783,7 @@ Respond ONLY with the valid JSON object and nothing else.`;
 					orderBy: { created: 'asc' },
 				});
 
-				this.logger.debug(`Retrieved ${ allMemoryItems.length } memory items and ${ allMemoryObjects.length } memory objects.`);
+				this.logger.info(`Retrieved ${ allMemoryItems.length } memory items and ${ allMemoryObjects.length } memory objects.`);
 			} catch(memoryError) {
 				this.logger.error(`Failed to fetch memory items/objects for chat ${ currentChatId }`, memoryError);
 			}
@@ -2901,7 +2836,7 @@ Respond ONLY with the valid JSON object and nothing else.`;
 		try {
 			// 1. Prepare token resolution tool only
 			const tokenTools = this.formatTokenResolutionTool();
-			this.logger.debug('Prepared token resolution tool');
+			this.logger.info('Prepared token resolution tool');
 
 			// 2. Build token resolution system prompt
 			const tokenSystemPrompt = `You are an AI assistant specialized in identifying cryptocurrency tokens.
@@ -2935,14 +2870,10 @@ This step is crucial for the main assistant to use correct token addresses.`;
 				toolChoice: 'auto', // Let AI decide whether to use the tool
 			});
 
-			this.logger.debug('Received token resolution response');
+			this.logger.info('Received token resolution response');
 
 			// 4. Process token resolution tool calls if any
-			let tokenResults = {
-				resolvedTokens: [],
-				potentialTokens: [],
-			};
-
+			let tokenResults = []
 			if(tokenResponse.choices && tokenResponse.choices[0]?.message?.tool_calls) {
 				const toolCalls = tokenResponse.choices[0].message.tool_calls;
 				this.logger.info(`Processing ${ toolCalls.length } token resolution tool calls`);
@@ -2952,25 +2883,21 @@ This step is crucial for the main assistant to use correct token addresses.`;
 
 				// Execute token resolution tool
 				const tokenActions = await this.executeToolCalls(toolCalls, chatId, userId, placeholderMsg.id);
-
+				this.logger.info('Token resolution tool calls executed.',  tokenActions);
 				// Extract token resolution results
 				for(const action of tokenActions) {
 					if(action.name === 'resolve_token_addresses' && action.result?.success) {
-						tokenResults.resolvedTokens = action.result.data?.resolved_tokens || [];
-						tokenResults.potentialTokens = action.result.data?.potential_tokens || [];
+						this.logger.info("Token resolution action result:", action.result);
+						tokenResults.push(tokenActions)
 					}
 				}
 
 				// Delete the placeholder message
 				await this.prisma.message.delete({ where: { id: placeholderMsg.id } });
-				this.logger.debug('Deleted token resolution placeholder message');
+				this.logger.info('Deleted token resolution placeholder message');
 			}
 
 			this.logger.success('Token resolution completed successfully');
-			this.logger.exit(functionName, {
-				resolvedTokensCount: tokenResults.resolvedTokens.length,
-				potentialTokensCount: tokenResults.potentialTokens.length,
-			});
 
 			return tokenResults;
 
@@ -3006,7 +2933,7 @@ This step is crucial for the main assistant to use correct token addresses.`;
 				take: this.memoryContextSize,
 			});
 
-			this.logger.debug(`Retrieved ${ recentMessages.length } recent messages for basic context`);
+			this.logger.info(`Retrieved ${ recentMessages.length } recent messages for basic context`);
 
 			const context = {
 				recentMessages: recentMessages.reverse(), // Chronological order
@@ -3044,7 +2971,7 @@ This step is crucial for the main assistant to use correct token addresses.`;
 				memoryResults.memoryObjects?.length > 0 ||
 				memoryResults.semanticResults
 			)) {
-				this.logger.debug('Adding memory resolution results to context');
+				this.logger.info('Adding memory resolution results to context');
 				standardContext.memoryResolution = {
 					retrievedItems: memoryResults.memoryItems || [],
 					retrievedObjects: memoryResults.memoryObjects || [],
@@ -3054,7 +2981,7 @@ This step is crucial for the main assistant to use correct token addresses.`;
 
 			// Add token resolution results if available
 			if(tokenResults && tokenResults.resolvedTokens?.length > 0) {
-				this.logger.debug('Adding token resolution results to context');
+				this.logger.info('Adding token resolution results to context');
 				standardContext.tokenResolution = {
 					resolvedTokens: tokenResults.resolvedTokens || [],
 					potentialTokens: tokenResults.potentialTokens || [],
@@ -3133,14 +3060,14 @@ This step is crucial for the main assistant to use correct token addresses.`;
 
 		try {
 			for(const toolCall of toolCalls) {
-				this.logger.debug('Processing tool call:', { type: toolCall.type, name: toolCall.function?.name });
+				this.logger.info('Processing tool call:', { type: toolCall.type, name: toolCall.function?.name });
 				if(toolCall.type === 'function') {
 					const functionName = toolCall.function.name;
 					let parsedArgs;
 
 					try {
 						parsedArgs = JSON.parse(toolCall.function.arguments);
-						this.logger.debug(`Parsed arguments for ${ functionName }:`, parsedArgs);
+						this.logger.info(`Parsed arguments for ${ functionName }:`, parsedArgs);
 					} catch(e) {
 						this.logger.error(`Failed to parse arguments for function ${ functionName }`, e, { args: toolCall.function.arguments });
 						parsedArgs = {}; // Continue with empty args? Or handle differently?
@@ -3155,7 +3082,7 @@ This step is crucial for the main assistant to use correct token addresses.`;
 					// 1. Save the function call record BEFORE executing
 					this.logger.info(`Saving function call record for ${ functionName }...`);
 					const functionCallRecord = await this.saveFunctionCall(userId, chatId, functionName, parsedArgs, assistantMessageId); // Will log internally
-					this.logger.debug(`Function call record saved:`, { id: functionCallRecord.id });
+					this.logger.info(`Function call record saved:`, { id: functionCallRecord.id });
 
 					let actionResult;
 					this.logger.info(`Executing action: ${ functionName }`);
@@ -3165,7 +3092,7 @@ This step is crucial for the main assistant to use correct token addresses.`;
 						const evaluationResult = await this.executeAction(functionCallRecord.id, functionName, parsedArgs, chatId, userId); // Logs internally
 						await this.updateFunctionCallResult(functionCallRecord.id, evaluationResult); // Logs internally
 						executedActions.push({ name: functionName, result: evaluationResult });
-						this.logger.debug(`Result for ${ functionName }:`, evaluationResult);
+						this.logger.info(`Result for ${ functionName }:`, evaluationResult);
 
 						// If evaluation suggests semantic search, execute it immediately
 						if(evaluationResult.success && evaluationResult.data.needs_semantic_search) {
@@ -3180,14 +3107,15 @@ This step is crucial for the main assistant to use correct token addresses.`;
 							const semanticResult = await this.executeAction(semanticFunctionCallRecord.id, semanticFunctionName, semanticQueryArgs, chatId, userId); // Logs internally
 							await this.updateFunctionCallResult(semanticFunctionCallRecord.id, semanticResult); // Logs internally
 							executedActions.push({ name: semanticFunctionName, result: semanticResult });
-							this.logger.debug(`Result for ${ semanticFunctionName }:`, semanticResult);
+							this.logger.info(`Result for ${ semanticFunctionName }:`, semanticResult);
 						}
 					} else {
 						// Normal action execution
 						actionResult = await this.executeAction(functionCallRecord.id, functionName, parsedArgs, chatId, userId); // Logs internally
+						this.logger.info("------------------>Executed action result:", actionResult);
 						await this.updateFunctionCallResult(functionCallRecord.id, actionResult); // Logs internally
 						executedActions.push({ name: functionName, result: actionResult });
-						this.logger.debug(`Result for ${ functionName }:`, actionResult);
+						this.logger.info(`Result for ${ functionName }:`, actionResult);
 					}
 					this.logger.success(`Successfully processed tool call for ${ functionName }.`);
 				} else {
@@ -3218,7 +3146,7 @@ This step is crucial for the main assistant to use correct token addresses.`;
 		this.logger.entry(functionName, { userId, chatId, sessionId });
 		try {
 			if(chatId) {
-				this.logger.debug('Attempting to find existing chat:', { chatId, userId });
+				this.logger.info('Attempting to find existing chat:', { chatId, userId });
 				const existingChat = await this.prisma.chat.findFirst({
 					where: { id: chatId, userId: userId, status: 'Active' },
 				});
@@ -3269,7 +3197,7 @@ This step is crucial for the main assistant to use correct token addresses.`;
 		this.logger.entry(functionName, { chatId, userId, role, text: logText });
 		try {
 			const estimatedTokens = this.estimateTokens(text); // Logs internally
-			this.logger.debug(`Estimated tokens: ${ estimatedTokens }`);
+			this.logger.info(`Estimated tokens: ${ estimatedTokens }`);
 			const message = await this.prisma.message.create({
 				data: {
 					chatId, userId, text, role, messageType: 'text', status: 'Active', tokens: estimatedTokens,
@@ -3292,11 +3220,11 @@ This step is crucial for the main assistant to use correct token addresses.`;
 	 */
 	estimateTokens(text) {
 		// Not logging entry/exit for this simple utility, but could add debug log if needed
-		// this.logger.debug('Estimating tokens for text length:', text.length);
+		// this.logger.info('Estimating tokens for text length:', text.length);
 		// Simple implementation - in production use tiktoken or another more accurate library
 		if(!text) return 0;
 		const estimate = Math.ceil(text.length / 4);
-		// this.logger.debug('Token estimate:', estimate);
+		// this.logger.info('Token estimate:', estimate);
 		return estimate;
 	}
 
@@ -3311,46 +3239,16 @@ This step is crucial for the main assistant to use correct token addresses.`;
 		this.logger.entry(functionName, { chatId, userId });
 		try {
 			// 1. Get recent messages
-			this.logger.debug(`Workspaceing last ${ this.memoryContextSize } messages.`);
+			this.logger.info(`Workspaceing last ${ this.memoryContextSize } messages.`);
 			const recentMessages = await this.prisma.message.findMany({
 				where: { chatId: chatId, status: 'Active' },
 				orderBy: { created: 'desc' },
 				take: this.memoryContextSize,
 			});
-			this.logger.debug(`Workspaceed ${ recentMessages.length } recent messages.`);
-
-			// 2. Get memory items
-			this.logger.debug('Fetching memory items.');
-			const memoryItems = await this.prisma.memoryItem.findMany({
-				where: { chatId: chatId },
-			});
-			this.logger.debug(`Workspaceed ${ memoryItems.length } memory items.`);
-
-			// 3. Get memory objects (strategies)
-			this.logger.debug('Fetching active memory objects (strategies).');
-			const memoryObjects = await this.prisma.memoryObject.findMany({
-				where: { chatId: chatId, isActive: true },
-			});
-			this.logger.debug(`Workspaceed ${ memoryObjects.length } memory objects.`);
-
-			// 4. Format and build context
-			const formattedMemory = this.formatMemoryItems(memoryItems); // Logs internally
-			const strategies = this.extractStrategies(memoryObjects); // Logs internally
-
 			const context = {
 				recentMessages: recentMessages.reverse(), // Chronological order
-				memoryItems: formattedMemory,
-				strategies: strategies,
 			};
-
-			this.logger.success('Successfully built conversation context.');
-			// Avoid logging the full context object unless debugging
-			this.logger.debug('Context details:', {
-				messageCount: context.recentMessages.length,
-				memoryItemCount: Object.keys(context.memoryItems).length,
-				strategyCount: context.strategies.length,
-			});
-			this.logger.exit(functionName); // Not returning the large context object here
+			this.logger.info(`Retrieved ${ recentMessages.length } recent messages for conversation context`);
 			return context;
 		} catch(error) {
 			this.logger.error(`Error in ${ functionName }`, error);
@@ -3408,7 +3306,7 @@ This step is crucial for the main assistant to use correct token addresses.`;
 				// Assuming strategy.data is already a JS object from Prisma JSON type
 				return strategy.data;
 			});
-		this.logger.debug(`Extracted ${ strategies.length } strategies.`);
+		this.logger.info(`Extracted ${ strategies.length } strategies.`);
 		this.logger.exit(functionName, { strategyCount: strategies.length });
 		return strategies;
 	}
@@ -3425,20 +3323,30 @@ This step is crucial for the main assistant to use correct token addresses.`;
 		try {
 			const systemPrompt = this.buildSystemPrompt(context); // Logs internally
 			const history = this.formatMessagesForAI(context.recentMessages); // Logs internally
-			const tools = this.formatToolsForAI(); // Logs internally
-
+			const memoryToolNames = [ 'retrieve_memory_items', 'retrieve_memory_objects', 'semantic_query', 'resolve_token_addresses' ];
+			// obten todas las available actions menos las mencionadas arrbia
+			const filteredActions = this.availableActions.actions
+				.filter(action => action.isActive && !memoryToolNames.includes(action.name))
+				.map(action => ({
+					type: 'function',
+					function: {
+						name: action.name,
+						description: action.description,
+						parameters: action.parameters,
+					},
+				}));
 			const request = {
 				model: this.defaultModel,
 				system: systemPrompt,
 				prompt: userMessage,
 				history: history,
 				temperature: 0.7, // Example value
-				tools: tools,
+				tools: filteredActions,
 				toolChoice: 'auto', // Example value
 			};
 			this.logger.success('Successfully built AI request object.');
 			// Avoid logging the full request unless debugging
-			this.logger.debug('AI Request details:', {
+			this.logger.info('AI Request details:', {
 				model: request.model,
 				promptLength: request.prompt.length,
 				historyLength: request.history.length,
@@ -3628,7 +3536,7 @@ If the user asks about investments, recommendations, or "what to invest in," YOU
 		this.logger.entry(functionName, { messageId, newContent: logContent });
 		try {
 			const estimatedTokens = this.estimateTokens(newContent); // Logs internally
-			this.logger.debug(`Estimated tokens for updated content: ${ estimatedTokens }`);
+			this.logger.info(`Estimated tokens for updated content: ${ estimatedTokens }`);
 			const updatedMessage = await this.prisma.message.update({
 				where: { id: messageId },
 				data: {
@@ -3899,11 +3807,11 @@ If the user asks about investments, recommendations, or "what to invest in," YOU
 		const functionName = 'updateChatStats';
 		this.logger.entry(functionName, { chatId });
 		try {
-			this.logger.debug('Counting active messages for chat.');
+			this.logger.info('Counting active messages for chat.');
 			const count = await this.prisma.message.count({
 				where: { chatId: chatId, status: 'Active' },
 			});
-			this.logger.debug(`Found ${ count } active messages. Updating chat record.`);
+			this.logger.info(`Found ${ count } active messages. Updating chat record.`);
 			await this.prisma.chat.update({
 				where: { id: chatId },
 				data: {
@@ -3945,11 +3853,11 @@ If the user asks about investments, recommendations, or "what to invest in," YOU
 					JSON.parse(trimmedValue); // Validate JSON structure
 					type = 'json';
 				} catch(e) { /* Not valid JSON, keep as string */
-					this.logger.debug(`Value for key '${ key }' looks like JSON but failed to parse. Storing as string.`);
+					this.logger.info(`Value for key '${ key }' looks like JSON but failed to parse. Storing as string.`);
 				}
 			}
 
-			this.logger.debug(`Determined type for key '${ key }' as '${ type }'. Upserting...`);
+			this.logger.info(`Determined type for key '${ key }' as '${ type }'. Upserting...`);
 			const valueStr = String(value); // Ensure value is stored as string in DB
 			const confidenceFloat = parseFloat(confidence);
 			if(isNaN(confidenceFloat)) {
@@ -3994,7 +3902,7 @@ If the user asks about investments, recommendations, or "what to invest in," YOU
 
 		let tokensList = [];
 		if(typeof tokens === 'string') {
-			this.logger.debug('Parsing tokens string:', tokens);
+			this.logger.info('Parsing tokens string:', tokens);
 			if(tokens.trim().startsWith('[') && tokens.trim().endsWith(']')) {
 				try {
 					tokensList = JSON.parse(tokens);
@@ -4004,24 +3912,24 @@ If the user asks about investments, recommendations, or "what to invest in," YOU
 					tokensList = tokens.replace(/^\[|\]$/g, '').split(',').map(t => t.trim()).filter(t => t); // Basic split/trim
 				}
 			} else if(tokens.trim()) {
-				this.logger.debug('Token string is not array-like, splitting by comma.');
+				this.logger.info('Token string is not array-like, splitting by comma.');
 				tokensList = tokens.split(',').map(t => t.trim()).filter(t => t); // Basic split/trim
 			} else {
-				this.logger.debug('Tokens string is empty.');
+				this.logger.info('Tokens string is empty.');
 			}
 		} else if(Array.isArray(tokens)) {
-			this.logger.debug('Tokens provided as array.');
+			this.logger.info('Tokens provided as array.');
 			tokensList = tokens;
 		} else {
 			this.logger.warn('Tokens argument is neither a string nor an array.', { tokens });
 		}
-		this.logger.debug('Processed token list:', tokensList);
+		this.logger.info('Processed token list:', tokensList);
 
 		try {
 			const strategyData = {
 				name, description, tokens: tokensList, rules, timeframe, createdAt: new Date().toISOString(),
 			};
-			this.logger.debug('Creating memory object for strategy:', strategyData);
+			this.logger.info('Creating memory object for strategy:', strategyData);
 			const strategy = await this.prisma.memoryObject.create({
 				data: {
 					chatId,
@@ -4060,7 +3968,7 @@ If the user asks about investments, recommendations, or "what to invest in," YOU
 		try {
 			this.logger.info(`Workspaceing token details for ${ token_address }...`);
 			const tokenDetails = await VybeService.getTokenDetails(token_address);
-			this.logger.debug('Token details received:', tokenDetails); // Might be large
+			this.logger.info('Token details received:', tokenDetails); // Might be large
 
 			let holders = null;
 			const shouldIncludeHolders = String(include_holders).toLowerCase() === 'true';
@@ -4068,7 +3976,7 @@ If the user asks about investments, recommendations, or "what to invest in," YOU
 				this.logger.info(`Workspaceing top holders for ${ token_address }...`);
 				try {
 					holders = await VybeService.getTopTokenHolders(token_address, { limit: 5 }); // Example limit
-					this.logger.debug('Token holders received:', holders); // Might be large
+					this.logger.info('Token holders received:', holders); // Might be large
 				} catch(e) {
 					this.logger.warn(`Failed to fetch token holders for ${ token_address }. Continuing without them.`, e);
 				}
@@ -4078,7 +3986,7 @@ If the user asks about investments, recommendations, or "what to invest in," YOU
 			const combinedData = { token: tokenDetails, holders: holders?.data || null }; // Use .data if holders object has it
 			const combinedDataString = JSON.stringify(combinedData);
 			const dataSizeKB = Math.round(combinedDataString.length / 1024);
-			this.logger.debug(`Combined data size: ~${ dataSizeKB } KB`);
+			this.logger.info(`Combined data size: ~${ dataSizeKB } KB`);
 
 			// Simplified Chroma logic: Store if data seems large (e.g., > 30KB)
 			// You might want more sophisticated logic or always store certain types
@@ -4097,9 +4005,9 @@ If the user asks about investments, recommendations, or "what to invest in," YOU
 						ids.push(`holders_${ token_address }_${ Date.now() }`);
 						metadatas.push({ type: 'token_holders', token_address, timestamp: new Date().toISOString() });
 					}
-					this.logger.debug(`Generating embeddings for ${ documents.length } documents...`);
+					this.logger.info(`Generating embeddings for ${ documents.length } documents...`);
 					const embeddings = await ChromaService.generateEmbeddings(documents);
-					this.logger.debug(`Adding documents to Chroma collection: ${ collectionName }`);
+					this.logger.info(`Adding documents to Chroma collection: ${ collectionName }`);
 					await ChromaService.addDocuments(collection, documents, ids, embeddings, metadatas);
 					chromaTokenData = {
 						collection_name: collection.name,
@@ -4134,9 +4042,13 @@ If the user asks about investments, recommendations, or "what to invest in," YOU
 	 * Action: Fetch wallet data
 	 */
 	async actionFetchWalletData(args) {
+		this.logger.info("")
 		const functionName = 'actionFetchWalletData';
 		this.logger.entry(functionName, { args });
-		const { wallet_address, include_tokens, include_nfts } = args;
+		const { wallet_address, include_tokens = true, include_nfts = true } = args;
+		this.logger.info("const wallet_address = ", wallet_address)
+		this.logger.info("const include_tokens = ", include_tokens)
+		this.logger.info("const include_nfts = ", include_nfts)
 		if(!wallet_address) {
 			this.logger.error('Wallet address is required.', { args });
 			throw new Error('Wallet address is required for fetch_wallet_data action');
@@ -4152,7 +4064,7 @@ If the user asks about investments, recommendations, or "what to invest in," YOU
 				this.logger.info(`Workspaceing tokens for wallet ${ wallet_address }...`);
 				try {
 					tokensData = await VybeService.getWalletTokens(wallet_address, { limit: 10 }); // Example limit
-					this.logger.debug('Wallet tokens received:', tokensData); // Might be large
+					this.logger.info('Wallet tokens received:', tokensData); // Might be large
 				} catch(e) {
 					this.logger.warn(`Failed to fetch wallet tokens for ${ wallet_address }. Continuing without them.`, e);
 				}
@@ -4162,7 +4074,7 @@ If the user asks about investments, recommendations, or "what to invest in," YOU
 				this.logger.info(`Workspaceing NFTs for wallet ${ wallet_address }...`);
 				try {
 					nftsData = await VybeService.getWalletNfts(wallet_address, { limit: 10 }); // Example limit
-					this.logger.debug('Wallet NFTs received:', nftsData); // Might be large
+					this.logger.info('Wallet NFTs received:', nftsData); // Might be large
 				} catch(e) {
 					this.logger.warn(`Failed to fetch wallet NFTs for ${ wallet_address }. Continuing without them.`, e);
 				}
@@ -4172,7 +4084,7 @@ If the user asks about investments, recommendations, or "what to invest in," YOU
 			const combinedData = { tokens: tokensData, nfts: nftsData };
 			const combinedDataString = JSON.stringify(combinedData);
 			const dataSizeKB = Math.round(combinedDataString.length / 1024);
-			this.logger.debug(`Combined wallet data size: ~${ dataSizeKB } KB`);
+			this.logger.info(`Combined wallet data size: ~${ dataSizeKB } KB`);
 
 			// Simplified Chroma logic (similar to token data)
 			let chromaWalletData = null;
@@ -4197,9 +4109,9 @@ If the user asks about investments, recommendations, or "what to invest in," YOU
 					}
 
 					if(documents.length > 0) {
-						this.logger.debug(`Generating embeddings for ${ documents.length } wallet documents...`);
+						this.logger.info(`Generating embeddings for ${ documents.length } wallet documents...`);
 						const embeddings = await ChromaService.generateEmbeddings(documents);
-						this.logger.debug(`Adding documents to Chroma collection: ${ collectionName }`);
+						this.logger.info(`Adding documents to Chroma collection: ${ collectionName }`);
 						await ChromaService.addDocuments(collection, documents, ids, embeddings, metadatas);
 						chromaWalletData = {
 							collection_name: collection.name,
@@ -4253,7 +4165,7 @@ If the user asks about investments, recommendations, or "what to invest in," YOU
 						this.logger.warn(`Invalid date format for scheduled_for: '${ scheduled_for }'. Scheduling without specific time.`);
 						scheduledDate = null; // Treat as invalid
 					} else {
-						this.logger.debug(`Parsed scheduled_for date: ${ scheduledDate.toISOString() }`);
+						this.logger.info(`Parsed scheduled_for date: ${ scheduledDate.toISOString() }`);
 					}
 				} catch(e) {
 					this.logger.warn(`Could not parse scheduled_for date string: '${ scheduled_for }'. Error: ${ e.message }`);
@@ -4314,12 +4226,12 @@ If the user asks about investments, recommendations, or "what to invest in," YOU
 			try {
 				this.logger.info('Listing Chroma collections...');
 				collections = await ChromaService.listCollections();
-				this.logger.debug('Available Chroma collections:', collections);
+				this.logger.info('Available Chroma collections:', collections);
 				// Filter collections by type (adjust prefixes if needed)
 				chatCollections = collections.filter(col => col.startsWith(`chat-${ chatId }`) || col.includes('chat'));
 				tokenCollections = collections.filter(col => col.startsWith('token_data_'));
 				walletCollections = collections.filter(col => col.startsWith('wallet_data_'));
-				this.logger.debug('Filtered collections:', {
+				this.logger.info('Filtered collections:', {
 					chat: chatCollections,
 					token: tokenCollections,
 					wallet: walletCollections,
@@ -4340,7 +4252,7 @@ ${ tokenCollections.length > 0 ? `- Token collections: ${ tokenCollections.join(
 ${ walletCollections.length > 0 ? `- Wallet collections: ${ walletCollections.join(', ') }` : '- No wallet collections available' }
 Respond with a JSON object... (Your full JSON instruction here) ...
 `;
-			this.logger.debug('Sending query intent evaluation request to AI.');
+			this.logger.info('Sending query intent evaluation request to AI.');
 			const response = await AIService.sendMessage({
 				model: this.defaultModel, // Maybe a smaller/faster model is sufficient?
 				system: 'You\'re an AI that assesses if queries need semantic search. Return only valid JSON.',
@@ -4348,7 +4260,7 @@ Respond with a JSON object... (Your full JSON instruction here) ...
 				temperature: 0.3, // Lower temp for consistent JSON
 				responseFormat: { type: 'json_object' },
 			});
-			this.logger.debug('Raw AI response for query intent:', response);
+			this.logger.info('Raw AI response for query intent:', response);
 
 			let evaluationResult;
 			if(response.choices?.[0]?.message?.content) {
@@ -4356,11 +4268,11 @@ Respond with a JSON object... (Your full JSON instruction here) ...
 					const rawJson = response.choices[0].message.content;
 					evaluationResult = JSON.parse(rawJson);
 					this.logger.success('Parsed query intent evaluation response.');
-					this.logger.debug('Evaluation Result:', evaluationResult);
+					this.logger.info('Evaluation Result:', evaluationResult);
 
 					// Simple logic to recommend a default collection if needed and none provided
 					if(evaluationResult.needs_semantic_search && !evaluationResult.recommended_collection && collections.length > 0) {
-						this.logger.debug('AI recommended search but no collection, attempting to infer...');
+						this.logger.info('AI recommended search but no collection, attempting to infer...');
 						if(chatCollections.length > 0 && (user_query.toLowerCase()
 							.includes('remember') || user_query.toLowerCase()
 							.includes('said') || user_query.toLowerCase().includes('told you'))) {
@@ -4459,7 +4371,7 @@ User Query: "${ originalQuery }"
 
 JSON Response:`;
 
-				this.logger.debug('Sending optimization prompt to AIService for JSON response...');
+				this.logger.info('Sending optimization prompt to AIService for JSON response...');
 
 				// FIXED: Properly call AIService with correct capitalization and parameter structure
 				const aiResponse = await AIService.sendMessage({
@@ -4472,7 +4384,7 @@ JSON Response:`;
 
 				// FIXED: Properly access the response content
 				const aiResponseJsonString = aiResponse.choices && aiResponse.choices[0]?.message?.content;
-				this.logger.debug(`Raw JSON string response from AIService.sendMessage: "${ aiResponseJsonString }"`);
+				this.logger.info(`Raw JSON string response from AIService.sendMessage: "${ aiResponseJsonString }"`);
 
 				if(aiResponseJsonString && typeof aiResponseJsonString === 'string') {
 					try {
@@ -4503,7 +4415,7 @@ JSON Response:`;
 
 			this.logger.info(`Performing semantic query in '${ targetCollectionName }' with final query "${ optimizedQuery }" (limit ${ finalLimit }).`);
 
-			this.logger.debug('Instantiating OpenAI embedding function...');
+			this.logger.info('Instantiating OpenAI embedding function...');
 			if(!process.env.OPENAI_API_KEY) {
 				this.logger.error('OpenAI API Key is missing.');
 				throw new Error('Missing OpenAI API Key configuration.');
@@ -4512,22 +4424,22 @@ JSON Response:`;
 				openai_api_key: process.env.OPENAI_API_KEY,
 				openai_model: ConversationService.TOKEN_EMBEDDING_MODEL,
 			});
-			this.logger.debug(`Embedding function created for model: ${ ConversationService.TOKEN_EMBEDDING_MODEL }.`);
+			this.logger.info(`Embedding function created for model: ${ ConversationService.TOKEN_EMBEDDING_MODEL }.`);
 
-			this.logger.debug(`Getting collection '${ targetCollectionName }' with embedding function...`);
+			this.logger.info(`Getting collection '${ targetCollectionName }' with embedding function...`);
 			const chromaCollection = await ChromaService.client.getCollection({
 				name: targetCollectionName,
 				embeddingFunction: embeddingFunction,
 			});
 			this.logger.info(`Successfully obtained collection object for '${ chromaCollection.name }'.`);
 
-			this.logger.debug('Executing ChromaDB query...');
+			this.logger.info('Executing ChromaDB query...');
 			const results = await chromaCollection.query({
 				queryTexts: [ optimizedQuery ],
 				nResults: finalLimit,
 				include: [ 'documents', 'metadatas', 'distances' ],
 			});
-			this.logger.debug('Raw Chroma query results received.');
+			this.logger.info('Raw Chroma query results received.');
 
 			let formattedResults = [];
 			if(results && results.ids && results.ids.length > 0 && results.ids[0].length > 0) {
@@ -4539,7 +4451,7 @@ JSON Response:`;
 					distance: results.distances?.[0]?.[i] ?? null,
 				}));
 				this.logger.info(`Semantic query found ${ count } results.`);
-				this.logger.debug('Formatted semantic query results:', formattedResults);
+				this.logger.info('Formatted semantic query results:', formattedResults);
 			} else {
 				this.logger.info('Semantic query returned no results.');
 			}
@@ -4559,7 +4471,7 @@ JSON Response:`;
 		} catch(error) {
 			this.logger.error(`Failed during semantic query process in '${ targetCollectionName }': ${ error.message }`, error);
 			if(error.stack) {
-				this.logger.debug(`Stack trace: ${ error.stack }`);
+				this.logger.info(`Stack trace: ${ error.stack }`);
 			}
 			if(error.message && (error.message.toLowerCase().includes('not found') || error.message.toLowerCase()
 				.includes('does not exist'))) {
@@ -4567,43 +4479,6 @@ JSON Response:`;
 			}
 			this.logger.exit(functionName, { error: true });
 			throw new Error(`Failed to perform semantic query in ${ targetCollectionName }: ${ error.message }`);
-		}
-	}
-
-	// ====================================
-	// ===== Other Service Methods =====
-	// ====================================
-	// Add logging to other methods as needed
-	/**
-	 * Stores user's name in memory
-	 * @param {number} chatId - The chat ID
-	 * @param {string} name - User's name
-	 * @returns {Promise<Object>} Result with stored item
-	 */
-	async storeUserName(chatId, name) {
-		const functionName = 'storeUserName';
-		this.logger.entry(functionName, { chatId, name });
-
-		if(!name || typeof name !== 'string') {
-			this.logger.error('Invalid name provided', { name });
-			throw new Error('Valid name is required');
-		}
-
-		try {
-			const result = await this.actionRememberInfo(chatId, {
-				key: 'user_name',
-				value: name.trim(),
-				source: 'user',
-				confidence: 1.0,
-			});
-
-			this.logger.success(`Stored user name: ${ name }`);
-			this.logger.exit(functionName, result);
-			return result;
-		} catch(error) {
-			this.logger.error(`Failed to store user name`, error);
-			this.logger.exit(functionName, { error: true });
-			throw error;
 		}
 	}
 
@@ -4635,7 +4510,7 @@ JSON Response:`;
 		const { messageLimit = 50, messageOffset = 0 } = options;
 		try {
 			// Get chat
-			this.logger.debug(`Workspaceing chat details for ID ${ chatId }...`);
+			this.logger.info(`Workspaceing chat details for ID ${ chatId }...`);
 			const chat = await this.prisma.chat.findFirst({
 				where: { id: chatId, userId, status: 'Active' }, // Ensure user owns the chat
 			});
@@ -4643,26 +4518,26 @@ JSON Response:`;
 				this.logger.error(`Conversation not found or access denied.`, { chatId, userId });
 				throw new Error('Conversation not found');
 			}
-			this.logger.debug('Chat details found.');
+			this.logger.info('Chat details found.');
 
 			// Get messages
-			this.logger.debug(`Workspaceing messages for chat ${ chatId } (limit: ${ messageLimit }, offset: ${ messageOffset })...`);
+			this.logger.info(`Workspaceing messages for chat ${ chatId } (limit: ${ messageLimit }, offset: ${ messageOffset })...`);
 			const messages = await this.prisma.message.findMany({
 				where: { chatId, status: 'Active' },
 				orderBy: { created: 'asc' },
 				skip: messageOffset,
 				take: messageLimit,
 			});
-			this.logger.debug(`Workspaceed ${ messages.length } messages.`);
+			this.logger.info(`Workspaceed ${ messages.length } messages.`);
 
 			// Get memory items & objects (similar to buildContext)
-			this.logger.debug(`Workspaceing memory items for chat ${ chatId }...`);
+			this.logger.info(`Workspaceing memory items for chat ${ chatId }...`);
 			const memoryItems = await this.prisma.memoryItem.findMany({ where: { chatId } });
-			this.logger.debug(`Workspaceed ${ memoryItems.length } memory items.`);
+			this.logger.info(`Workspaceed ${ memoryItems.length } memory items.`);
 
-			this.logger.debug(`Workspaceing active memory objects for chat ${ chatId }...`);
+			this.logger.info(`Workspaceing active memory objects for chat ${ chatId }...`);
 			const memoryObjects = await this.prisma.memoryObject.findMany({ where: { chatId, isActive: true } });
-			this.logger.debug(`Workspaceed ${ memoryObjects.length } memory objects.`);
+			this.logger.info(`Workspaceed ${ memoryObjects.length } memory objects.`);
 
 			const formattedMemory = this.formatMemoryItems(memoryItems); // Logs internally
 
@@ -4694,7 +4569,7 @@ JSON Response:`;
 		this.logger.entry(functionName, { chatId, collectionName });
 		try {
 			// Get messages
-			this.logger.debug(`Workspaceing active messages for chat ${ chatId } to create collection...`);
+			this.logger.info(`Workspaceing active messages for chat ${ chatId } to create collection...`);
 			const messages = await this.prisma.message.findMany({
 				where: { chatId, status: 'Active' },
 				orderBy: { created: 'asc' },
@@ -4705,7 +4580,7 @@ JSON Response:`;
 				this.logger.exit(functionName, { success: false, reason: 'No messages' });
 				return { collection: null, documentCount: 0, info: 'No messages to index.' };
 			}
-			this.logger.debug(`Found ${ messages.length } messages for indexing.`);
+			this.logger.info(`Found ${ messages.length } messages for indexing.`);
 
 			// Get chat details for context/naming
 			const chat = await this.prisma.chat.findUnique({ where: { id: chatId } });
@@ -4730,7 +4605,7 @@ JSON Response:`;
 			}));
 
 			// Generate embeddings and add
-			this.logger.debug(`Generating embeddings for ${ documents.length } documents...`);
+			this.logger.info(`Generating embeddings for ${ documents.length } documents...`);
 			const embeddings = await ChromaService.generateEmbeddings(documents);
 			this.logger.info(`Adding ${ documents.length } documents to collection ${ finalCollectionName }...`);
 			await ChromaService.addDocuments(chromaCollection, documents, ids, embeddings, metadatas);
@@ -4772,7 +4647,7 @@ JSON Response:`;
 				limit,
 			});
 
-			this.logger.debug('Token price history received:', priceHistory);
+			this.logger.info('Token price history received:', priceHistory);
 
 			const result = {
 				token: token_address,
@@ -4814,7 +4689,7 @@ JSON Response:`;
 				page: parseInt(page),
 			});
 
-			this.logger.debug('Token holders data received:', holdersData);
+			this.logger.info('Token holders data received:', holdersData);
 
 			const result = {
 				token: token_address,
@@ -4852,7 +4727,7 @@ JSON Response:`;
 				days: days ? parseInt(days) : undefined,
 			});
 
-			this.logger.debug('Wallet PnL data received:', pnlData);
+			this.logger.info('Wallet PnL data received:', pnlData);
 
 			const result = {
 				wallet: wallet_address,
@@ -4905,7 +4780,7 @@ JSON Response:`;
 				page: parseInt(page),
 			});
 
-			this.logger.debug('Token transfers data received:', transfersData);
+			this.logger.info('Token transfers data received:', transfersData);
 
 			const result = {
 				token: token_address,
@@ -4939,8 +4814,8 @@ JSON Response:`;
 	async actionFetchTopTokens(args) {
 		const functionName = 'actionFetchTopTokens';
 		this.logger.entry(functionName, { args });
-		const { sort_by = 'volume_24h', order = 'desc', limit = '10', page = '1' } = args;
-
+		let { sort_by = 'marketCap', order = 'asc', limit = '10', page = '1' } = args;
+		limit = 10
 		try {
 			this.logger.info(`Fetching top tokens sorted by ${ sort_by } in ${ order } order...`);
 
@@ -4955,7 +4830,7 @@ JSON Response:`;
 				page: parseInt(page),
 			});
 
-			this.logger.debug('Top tokens data received:', tokensData);
+			this.logger.info('Top tokens data received:', tokensData);
 
 			const result = {
 				sortBy: sort_by,
@@ -4992,7 +4867,7 @@ JSON Response:`;
 			this.logger.info(`Fetching details for program ${ program_id }...`);
 			const programDetails = await VybeService.getProgramDetails(program_id);
 
-			this.logger.debug('Program details received:', programDetails);
+			this.logger.info('Program details received:', programDetails);
 
 			const result = {
 				programId: program_id,
@@ -5029,7 +4904,7 @@ JSON Response:`;
 				limit: parseInt(limit),
 			});
 
-			this.logger.debug('Program active users data received:', activeUsersData);
+			this.logger.info('Program active users data received:', activeUsersData);
 
 			const result = {
 				programId: program_id,
@@ -5067,7 +4942,7 @@ JSON Response:`;
 				resolution,
 			});
 
-			this.logger.debug('Program TVL data received:', tvlData);
+			this.logger.info('Program TVL data received:', tvlData);
 
 			const result = {
 				programId: program_id,
@@ -5100,7 +4975,7 @@ JSON Response:`;
 				page: parseInt(page),
 			});
 
-			this.logger.debug('Program ranking data received:', rankingData);
+			this.logger.info('Program ranking data received:', rankingData);
 
 			const result = {
 				page: parseInt(page),
@@ -5142,7 +5017,7 @@ JSON Response:`;
 			// Filter for the specific market_id
 			const marketInfo = marketData.data?.find(market => market.id === market_id) || null;
 
-			this.logger.debug('Market info received:', marketInfo);
+			this.logger.info('Market info received:', marketInfo);
 
 			const result = {
 				marketId: market_id,
@@ -5191,7 +5066,7 @@ JSON Response:`;
 				limit: parseInt(limit),
 			});
 
-			this.logger.debug('Pair OHLCV data received:', ohlcvData);
+			this.logger.info('Pair OHLCV data received:', ohlcvData);
 
 			const result = {
 				baseMint: base_mint_address,
@@ -5441,7 +5316,7 @@ JSON Response:`;
 				vybeSortField = 'marketCap';
 			}
 
-			this.logger.debug(`Mapped criteria '${ criteria }' to Vybe sort field '${ vybeSortField }'`);
+			this.logger.info(`Mapped criteria '${ criteria }' to Vybe sort field '${ vybeSortField }'`);
 
 			// Get initial list of tokens using the correct sort field
 			const tokensResponse = await VybeService.getTokensSummary({
@@ -5503,7 +5378,7 @@ JSON Response:`;
 				default:
 					filteredTokens = tokens;
 			}
-			this.logger.debug(`Tokens after risk filter '${ risk_level }': ${ filteredTokens.length }`);
+			this.logger.info(`Tokens after risk filter '${ risk_level }': ${ filteredTokens.length }`);
 
 			// FIX: FALLBACK MECHANISM - If no tokens after filtering, use the original list
 			if(filteredTokens.length === 0) {
@@ -5517,20 +5392,20 @@ JSON Response:`;
 					filteredTokens.sort((a, b) =>
 						Math.abs(b.price_change_24h || 0) - Math.abs(a.price_change_24h || 0),
 					);
-					this.logger.debug(`Re-sorted for 'short' timeframe based on price_change_24h`);
+					this.logger.info(`Re-sorted for 'short' timeframe based on price_change_24h`);
 				} else if(timeframe.toLowerCase() === 'long') {
 					filteredTokens.sort((a, b) => {
 						const mcDiff = (b.marketCap || 0) - (a.marketCap || 0);
 						if(mcDiff !== 0) return mcDiff;
 						return (b.holders || 0) - (a.holders || 0);
 					});
-					this.logger.debug(`Re-sorted for 'long' timeframe based on marketCap/holders`);
+					this.logger.info(`Re-sorted for 'long' timeframe based on marketCap/holders`);
 				}
 			}
 
 			// Take the requested limit
 			const limitedRecommendations = filteredTokens.slice(0, parseInt(limit));
-			this.logger.debug(`Taking top ${ limitedRecommendations.length } recommendations based on limit.`);
+			this.logger.info(`Taking top ${ limitedRecommendations.length } recommendations based on limit.`);
 
 			// IMPORTANTE: Definir la variable recommendations ANTES de usarla
 			const recommendations = limitedRecommendations.map(token => {
@@ -5697,7 +5572,7 @@ JSON Response:`;
 				page: parseInt(page),
 			});
 
-			this.logger.debug('Known accounts data received:', accountsData);
+			this.logger.info('Known accounts data received:', accountsData);
 
 			const result = {
 				ownerAddress: owner_address || 'all',
@@ -5737,7 +5612,7 @@ JSON Response:`;
 				days: parseInt(days),
 			});
 
-			this.logger.debug('Wallet tokens time series data received:', timeSeriesData);
+			this.logger.info('Wallet tokens time series data received:', timeSeriesData);
 
 			const result = {
 				wallet: wallet_address,
