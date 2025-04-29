@@ -79,31 +79,33 @@ class ConversationService {
 						isActive: true,
 					},
 					{
-						name: 'fetch_token_data',
-						description: 'Retrieves comprehensive details for a specific Solana token using its mint address. Provides information like name, symbol, current price, supply, market cap, 24h volume, etc. Use this when the user asks for general information, price, or details about a *specific* token.',
-						parameters: {
-							type: 'object',
-							properties: {
-								token_address: {
-									type: 'string',
-									description: 'The unique mint address of the Solana token (e.g., "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" for USDC).',
+						'name': 'fetch_token_data',
+						// --- DESCRIPCIÓN MEJORADA ---
+						'description': 'Get the current price and other details (market cap, volume, etc.) for ONE SPECIFIC Solana token identified by its mint address. Use this FIRST and ONLY when the user asks about the price, value, or general information of a SINGLE known token (e.g., \'price of SOL\', \'info on JUP\'). Requires the token\'s specific mint address.',
+						// --- FIN DESCRIPCIÓN MEJORADA ---
+						'parameters': {
+							'type': 'object',
+							'properties': {
+								'token_address': {
+									'type': 'string',
+									'description': 'The unique mint address of the Solana token (e.g., "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" for USDC).',
 								},
-								include_price: {
-									type: 'boolean',
-									description: 'Optional. Set to true to explicitly include the latest price data. Default: true.',
-									default: true,
+								'include_price': {
+									'type': 'boolean',
+									'description': 'Optional. Set to true to explicitly include the latest price data. Default: true.',
+									'default': true,
 								},
-								include_holders: {
-									type: 'boolean',
-									description: 'Optional. Set to true to include information about the top token holders. Default: false.',
-									default: false,
+								'include_holders': {
+									'type': 'boolean',
+									'description': 'Optional. Set to true to include information about the top token holders. Default: false.',
+									'default': false,
 								},
 							},
-							required: [ 'token_address' ],
+							'required': [ 'token_address' ],
 						},
-						handlerFunction: 'actionFetchTokenData',
-						category: 'Token Info',
-						isActive: true,
+						'handlerFunction': 'actionFetchTokenData',
+						'category': 'Token Info',
+						'isActive': true,
 					}, // testeado
 					{
 						name: 'fetch_token_price_history',
@@ -263,39 +265,41 @@ class ConversationService {
 						isActive: true,
 					}, // -----
 					{
-						name: 'fetch_top_tokens',
-						description: 'Gets a ranked list of Solana tokens based on specified criteria like market capitalization, 24-hour trading volume, price change, or number of holders. Useful for discovering trending, significant, or highly-ranked tokens in the ecosystem.Valid sorts for this endpoint are: mintAddress, currentSupply, current_supply, marketCap, market_cap, name, price, price1d, price_1d, price7d, price_7d, symbol',
-						parameters: {
-							type: 'object',
-							properties: {
-								sort_by: {
-									type: 'string',
-									description: 'The metric to sort the tokens by. Common values: "marketCap", "price_change_24h", "holders"',
-									enum: [ 'marketCap', 'price_change_24h', 'holders' ], // Add other valid fields from Vybe docs
-									default: 'marketCap',
+						'name': 'fetch_top_tokens',
+						// --- DESCRIPCIÓN MEJORADA ---
+						'description': 'Retrieves a RANKED LIST of MULTIPLE Solana tokens based on market criteria (e.g., marketCap, volume_24h, price_change_24h). Use ONLY for discovering trending tokens, getting market rankings, or finding lists of tokens meeting certain criteria. DO NOT use this if the user asks about the price or details of only ONE specific token (use fetch_token_data for that instead).',
+						// --- FIN DESCRIPCIÓN MEJORADA ---
+						'parameters': {
+							'type': 'object',
+							'properties': {
+								'sort_by': {
+									'type': 'string',
+									'description': 'The metric to sort the tokens by. Common values: "marketCap", "price_change_24h", "holders". See Vybe docs for all valid fields.',
+									'enum': [ 'marketCap', 'price_change_24h', 'holders', 'volume_24h', 'price' ], // Enum más explícito
+									'default': 'marketCap',
 								},
-								order: {
-									type: 'string',
-									description: 'The sort order: "asc" (ascending) or "desc" (descending). Default: "desc".',
-									enum: [ 'asc', 'desc' ],
-									default: 'desc',
+								'order': {
+									'type': 'string',
+									'description': 'The sort order: "asc" (ascending) or "desc" (descending). Default: "desc".',
+									'enum': [ 'asc', 'desc' ],
+									'default': 'desc',
 								},
-								limit: {
-									type: 'integer',
-									description: 'Optional. Maximum number of tokens to return. Default: 10.',
-									default: 10,
+								'limit': {
+									'type': 'integer',
+									'description': 'Optional. Maximum number of tokens to return. Default: 10.',
+									'default': 10,
 								},
-								page: {
-									type: 'integer',
-									description: 'Optional. Page number for pagination. Default: 1.',
-									default: 1,
+								'page': {
+									'type': 'integer',
+									'description': 'Optional. Page number for pagination. Default: 1.',
+									'default': 1,
 								},
 							},
-							required: [], // No strict requirements, defaults are sufficient
+							'required': [],
 						},
-						handlerFunction: 'actionFetchTopTokens',
-						category: 'Market Info',
-						isActive: true,
+						'handlerFunction': 'actionFetchTopTokens',
+						'category': 'Market Info',
+						'isActive': true,
 					}, // testeado
 					{
 						name: 'fetch_program_details',
