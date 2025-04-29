@@ -2404,8 +2404,18 @@ Response: Bitcoin BTC Ethereum ETH
 
 			// 6. Process search results
 
+			// Modify actionResolveTokenAddresses to return a cleaner structure
 			const result = {
-				searchResults: searchResults.documents,
+				resolvedTokens: searchResults.documents[0].map(doc => {
+					// Parse the document string to extract token data
+					const tokenInfo = parseTokenDocumentString(doc);
+					return {
+						token_symbol: tokenInfo.symbol,
+						token_name: tokenInfo.name,
+						token_address: tokenInfo.address,
+					};
+				}),
+				query: semanticQuery,
 			};
 
 			this.logger.info(`Token results: ${ JSON.stringify(result, null, 2) }`);
