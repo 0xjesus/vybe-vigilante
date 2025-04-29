@@ -2168,11 +2168,10 @@ class ConversationService {
 		}
 
 		try {
-			// 1. Get tokens from database
-			this.logger.debug('Fetching tokens from database...');
+			// 1. Get tokens from database (for potential matches only, not for embeddings)
+			this.logger.debug('Fetching tokens from database for potential matches...');
 			const tokens = await this.prisma.token.findMany({
 				where: {
-					// Ensure we don't get tokens without names or symbols
 					AND: [
 						{ NOT: { name: null } },
 						{ NOT: { symbol: null } },
@@ -2181,63 +2180,30 @@ class ConversationService {
 			});
 			this.logger.debug(`Found ${ tokens.length } tokens in database.`);
 
-			// 2. Create or get Chroma collection for tokens
-			this.logger.debug('Creating/getting token collection in Chroma...');
+			// 2. Get Chroma collection - assume it already exists with embeddings
+			this.logger.debug('Getting token collection from Chroma...');
 			const collectionName = 'token_resolution';
-			const collection = await ChromaService.getOrCreateCollection(collectionName);
-			this.logger.debug(`Using Chroma collection: ${ collection.name }`);
 
-			// 3. Prepare documents for upsert - create embeddings for each token
-			this.logger.debug('Preparing documents for Chroma upsert...');
-			const documentBatches = [];
-			const batchSize = 100; // Process in batches to avoid overloading
-
-			for(let i = 0; i < tokens.length; i += batchSize) {
-				const batch = tokens.slice(i, i + batchSize);
-
-				// Prepare documents, ids, and metadata for the batch
-				const documents = batch.map(token => {
-					// Create a text representation that's suitable for semantic search
-					return `Token Name: ${ token.name || 'Unknown' }. Symbol: ${ token.symbol || 'Unknown' }. Address: ${ token.address }. ${ token.tags ? `Tags: ${ token.tags }.` : '' } ${ token.coingeckoId ? `CoinGecko ID: ${ token.coingeckoId }.` : '' }`;
-				});
-
-				const ids = batch.map(token => `token-${ token.address }`);
-
-				const metadatas = batch.map(token => ({
-					token_name: token.name,
-					token_symbol: token.symbol,
-					token_address: token.address,
-					decimals: token.decimals,
-					coingecko_id: token.coingeckoId,
-					tags: token.tags,
-					indexed_at: new Date().toISOString(),
-				}));
-
-				documentBatches.push({ documents, ids, metadatas });
+			let collection;
+			try {
+				// Try to get the existing collection
+				collection = await ChromaService.getCollection(collectionName);
+				this.logger.debug(`Using existing Chroma collection: ${ collection.name }`);
+			} catch(error) {
+				// If collection doesn't exist, log a warning but continue without embeddings
+				this.logger.warn(`Token collection ${ collectionName } not found in Chroma. Semantic search will not be available.`, error);
+				// Return empty results as fallback, but still try text matching for potential tokens
+				const result = {
+					original_query: query,
+					semantic_query: query,
+					resolved_tokens: [],
+					potential_tokens: this.findPotentialTokenMatches(tokens, query),
+				};
+				this.logger.exit(functionName, { useSemanticSearch: false });
+				return result;
 			}
 
-			// 4. Upsert documents in batches
-			this.logger.debug(`Processing ${ documentBatches.length } batches for upsert...`);
-			for(const batch of documentBatches) {
-				try {
-					this.logger.debug(`Generating embeddings for batch of ${ batch.documents.length } tokens...`);
-					const embeddings = await ChromaService.generateEmbeddings(batch.documents);
-
-					this.logger.debug('Upserting documents to Chroma collection...');
-					await ChromaService.upsertDocuments(
-						collection,
-						batch.documents,
-						batch.ids,
-						embeddings,
-						batch.metadatas,
-					);
-				} catch(error) {
-					this.logger.warn(`Error processing batch: ${ error.message }. Continuing with next batch.`);
-					// Continue with next batch instead of failing the entire operation
-				}
-			}
-
-			// 5. Generate a semantic query based on the user's input
+			// 3. Generate a semantic query based on the user's input
 			this.logger.debug('Generating semantic query from user input...');
 			const queryGenPrompt = `
 I need a semantic search query to find cryptocurrency tokens mentioned in the following text:
@@ -2273,7 +2239,7 @@ Response: Bitcoin BTC Ethereum ETH
 				this.logger.warn(`Failed to generate semantic query, using original: "${ semanticQuery }"`);
 			}
 
-			// 6. Perform the semantic search
+			// 4. Perform the semantic search using existing embeddings
 			this.logger.debug(`Performing semantic search with query: "${ semanticQuery }"`);
 			const searchResults = await ChromaService.queryCollection(
 				collection,
@@ -2283,7 +2249,7 @@ Response: Bitcoin BTC Ethereum ETH
 				[ 'documents', 'metadatas', 'distances' ],
 			);
 
-			// 7. Format and return the results
+			// 5. Format and return the results
 			const formattedResults = [];
 
 			if(searchResults && searchResults.ids && searchResults.ids[0] && searchResults.ids[0].length > 0) {
@@ -2306,21 +2272,8 @@ Response: Bitcoin BTC Ethereum ETH
 				this.logger.warn('No token matches found in semantic search.');
 			}
 
-			// 8. For potential tokens (lower confidence matches), just mention them
-			// This would typically be from a looser search or other heuristics
-			const potentialTokens = tokens
-				.filter(token => {
-					// Don't include tokens already in main results
-					return !formattedResults.some(r => r.token_address === token.address) &&
-						(query.toLowerCase().includes(token.symbol?.toLowerCase()) ||
-							query.toLowerCase().includes(token.name?.toLowerCase()));
-				})
-				.slice(0, 5) // Limit to 5 potential matches
-				.map(token => ({
-					token_name: token.name,
-					token_symbol: token.symbol,
-					token_address: token.address,
-				}));
+			// 6. Find potential tokens by simple text matching (fallback)
+			const potentialTokens = this.findPotentialTokenMatches(tokens, query, formattedResults);
 
 			const result = {
 				original_query: query,
@@ -2337,6 +2290,23 @@ Response: Bitcoin BTC Ethereum ETH
 			this.logger.exit(functionName, { error: true });
 			throw new Error(`Failed to resolve token addresses: ${ error.message }`);
 		}
+	}
+
+	// Helper method to find potential token matches by simple text matching
+	findPotentialTokenMatches(tokens, query, alreadyFound = []) {
+		return tokens
+			.filter(token => {
+				// Don't include tokens already in main results
+				return !alreadyFound.some(r => r.token_address === token.address) &&
+					(query.toLowerCase().includes(token.symbol?.toLowerCase()) ||
+						query.toLowerCase().includes(token.name?.toLowerCase()));
+			})
+			.slice(0, 5) // Limit to 5 potential matches
+			.map(token => ({
+				token_name: token.name,
+				token_symbol: token.symbol,
+				token_address: token.address,
+			}));
 	}
 
 	reportProgress(stage = '', detail = '', object = null, progressCallback) {
