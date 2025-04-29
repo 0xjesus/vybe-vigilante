@@ -2286,6 +2286,33 @@ class ConversationService {
 	}
 
 	/**
+	 * Helper function to parse token document strings from Chroma search results
+	 * @param {string} documentString - Document string from Chroma search containing token info
+	 * @returns {Object} Parsed token information
+	 */
+	parseTokenDocumentString(documentString) {
+		try {
+			// Extract token details using regex
+			const nameMatch = documentString.match(/Token Name: ([^.]+)\./);
+			const symbolMatch = documentString.match(/Symbol: ([^.]+)\./);
+			const addressMatch = documentString.match(/Address: ([^.]+)\./);
+
+			return {
+				name: nameMatch ? nameMatch[1].trim() : 'Unknown',
+				symbol: symbolMatch ? symbolMatch[1].trim() : 'Unknown',
+				address: addressMatch ? addressMatch[1].trim() : null,
+			};
+		} catch(error) {
+			console.error('Error parsing token document string:', error);
+			return {
+				name: 'Parse Error',
+				symbol: 'Unknown',
+				address: null,
+			};
+		}
+	}
+
+	/**
 	 * Action: Resolve token addresses from user messages
 	 * @param {object} args - Arguments { query, limit }
 	 * @returns {Promise<object>} Result with resolved tokens
@@ -2408,7 +2435,7 @@ Response: Bitcoin BTC Ethereum ETH
 			const result = {
 				resolvedTokens: searchResults.documents[0].map(doc => {
 					// Parse the document string to extract token data
-					const tokenInfo = parseTokenDocumentString(doc);
+					const tokenInfo = this.parseTokenDocumentString(doc);
 					return {
 						token_symbol: tokenInfo.symbol,
 						token_name: tokenInfo.name,
@@ -3041,11 +3068,11 @@ Respond ONLY with the valid JSON object and nothing else.`;
 		this.logger.entry(functionName, { chatId, userId });
 
 		try {
-			// 1. Prepare token resolution tool only
+			// 1. Preparar herramienta de resolución de tokens solamente
 			const tokenTools = this.formatTokenResolutionTool();
 			this.logger.info('Prepared token resolution tool');
 
-			// 2. Build token resolution system prompt
+			// 2. Construir system prompt para resolución de tokens
 			const tokenSystemPrompt = `You are an AI assistant specialized in identifying cryptocurrency tokens.
 Your task is to identify any token symbols or names mentioned in the user's message.
 
@@ -3065,7 +3092,7 @@ DO NOT use the tool if:
 
 This step is crucial for the main assistant to use correct token addresses.`;
 
-			// 3. Send AI request with token resolution tool only
+			// 3. Enviar solicitud a la IA con herramienta de resolución de tokens solamente
 			this.logger.info('Sending token resolution request to AI...');
 			const tokenResponse = await AIService.sendMessage({
 				model: this.defaultModel,
@@ -3074,24 +3101,25 @@ This step is crucial for the main assistant to use correct token addresses.`;
 				history: this.formatMessagesForAI(basicContext.recentMessages),
 				temperature: 0.4,
 				tools: tokenTools,
-				toolChoice: 'auto', // Let AI decide whether to use the tool
+				toolChoice: 'auto', // Dejar que la IA decida si usar la herramienta
 			});
 
 			this.logger.info('Received token resolution response');
 
-			// 4. Process token resolution tool calls if any
+			// 4. Procesar llamadas a herramientas de resolución de tokens si las hay
 			let tokenResults = [];
 			if(tokenResponse.choices && tokenResponse.choices[0]?.message?.tool_calls) {
 				const toolCalls = tokenResponse.choices[0].message.tool_calls;
 				this.logger.info(`Processing ${ toolCalls.length } token resolution tool calls`);
 
-				// Create placeholder message to associate with tool calls
+				// Crear mensaje placeholder para asociar con las llamadas a herramientas
 				const placeholderMsg = await this.saveMessage(chatId, userId, '...', 'assistant');
 
-				// Execute token resolution tool
+				// Ejecutar herramienta de resolución de tokens
 				const tokenActions = await this.executeToolCalls(toolCalls, chatId, userId, placeholderMsg.id);
 				this.logger.info('Token resolution tool calls executed.', tokenActions);
-				// Extract token resolution results
+
+				// Extraer resultados de resolución de tokens y formatearlos adecuadamente
 				for(const action of tokenActions) {
 					if(action.name === 'resolve_token_addresses' && action.result?.success) {
 						this.logger.info('Token resolution action result:', action.result);
@@ -3099,19 +3127,24 @@ This step is crucial for the main assistant to use correct token addresses.`;
 					}
 				}
 
-				// Delete the placeholder message
+				// Eliminar el mensaje placeholder
 				await this.prisma.message.delete({ where: { id: placeholderMsg.id } });
 				this.logger.info('Deleted token resolution placeholder message');
 			}
 
+			this.logger.info('Token resolution completed', {
+				resolvedTokensCount: tokenResults,
+			});
+
+			this.logger.info('Token resolution context tokenResults:', tokenResults);
 			this.logger.success('Token resolution completed successfully');
+			this.logger.exit(functionName);
 
 			return tokenResults;
-
 		} catch(error) {
 			this.logger.error(`Error in ${ functionName }`, error);
 			this.logger.exit(functionName, { error: true });
-			// Don't throw - return empty results to continue the flow
+			// No lanzar el error - devolver resultados vacíos para continuar el flujo
 			return {
 				resolvedTokens: [],
 				potentialTokens: [],
@@ -3186,12 +3219,31 @@ This step is crucial for the main assistant to use correct token addresses.`;
 				};
 			}
 
-			// Add token resolution results if available
-			if(tokenResults && tokenResults.resolvedTokens?.length > 0) {
+			let resolvedTokens = [];
+
+			if(tokenResults && tokenResults.length > 0) {
+				// Si es un array de acción, busca los datos resueltos
+				if(Array.isArray(tokenResults[0]) && tokenResults[0].length > 0) {
+					const tokenAction = tokenResults[0][0];
+					if(tokenAction && tokenAction.result && tokenAction.result.data &&
+						tokenAction.result.data.resolvedTokens) {
+						resolvedTokens = tokenAction.result.data.resolvedTokens;
+						this.logger.info('Extracted token results from nested action format',
+							{ tokenCount: resolvedTokens.length });
+					}
+				}
+				// Si ya es un array de tokens (el formato esperado)
+				else if(Array.isArray(tokenResults) && typeof tokenResults[0] === 'object' &&
+					(tokenResults[0].token_address || tokenResults[0].token_symbol)) {
+					resolvedTokens = tokenResults;
+				}
+			}
+
+			if(resolvedTokens.length > 0) {
 				this.logger.info('Adding token resolution results to context');
 				standardContext.tokenResolution = {
-					resolvedTokens: tokenResults.resolvedTokens || [],
-					potentialTokens: tokenResults.potentialTokens || [],
+					resolvedTokens: resolvedTokens,
+					potentialTokens: [], // Opcional si se implementa
 				};
 			}
 
@@ -3667,7 +3719,7 @@ If the user asks about investments, recommendations, or "what to invest in," YOU
 					systemPrompt += `\n- ${ token.token_symbol || 'Unknown' } (${ token.token_name || 'Unknown' }): ${ token.token_address }`;
 				});
 
-				systemPrompt += `\n\nIMPORTANT: When using Vybe API tools, ALWAYS use these exact token addresses instead of symbols for accurate results.`;
+				systemPrompt += `\n\nIMPORTANT: When using Vybe API tools, ALWAYS use these exact token addresses instead of made-up ones. The first option (${ resolvedTokens[0].token_symbol }) with address ${ resolvedTokens[0].token_address } should be tried first.`;
 			}
 		}
 
