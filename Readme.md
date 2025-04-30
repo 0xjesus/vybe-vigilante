@@ -54,7 +54,6 @@ The memory system is powered by well-designed Prisma models:
 - **MemoryObject**: Complex JSON storage for strategies, watchlists, etc.
 - **FunctionCall**: Execution history tracking with telemetry
 - **Message**: Full conversation history preservation
-- **VoiceConfiguration**: User voice preference storage
 
 This architecture enables personalizations like: "Remember I prefer high-risk investments" or "Create a token watchlist for DeFi tokens" that persist across conversations - something most bots can't achieve.
 
