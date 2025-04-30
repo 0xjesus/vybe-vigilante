@@ -5,8 +5,10 @@ import { promptTokensEstimate } from 'openai-chat-tokens';
 import { groqModels, openAIModels, openRouterModels, perplexityModels } from '../assets/data/ai-models.js';
 import UploadService from '#services/upload.service.js';
 import { createLogger } from '#utils/logger.js';
-
+import fs from 'fs';
+import FormData from 'form-data';
 class AIService {
+	static openaiAPIKey = process.env.OPENAI_API_KEY;
 
 	// Static logger instance for the service
 	static logger = createLogger({
@@ -531,6 +533,165 @@ class AIService {
 			const fallbackTokens = Math.ceil(charCount / 4);
 			// this.logger.exit(functionName, { fallbackTokens });
 			return fallbackTokens;
+		}
+	}
+
+	static async createAudioFromText(text, voice = 'nova') {
+		try {
+			// Sanitizar el texto para evitar problemas con caracteres especiales
+			const sanitizedText = text.replace(/"/g, '\'');
+
+			this.logger.info('Creating audio from text', {
+				textLength: text.length,
+				voice,
+				textPreview: text.substring(0, 50) + '...',
+			});
+
+			const response = await axios.post('https://api.openai.com/v1/audio/speech', {
+				model: 'tts-1',
+				input: sanitizedText,
+				voice: voice,
+				speed: 1,
+			}, {
+				headers: {
+					'Authorization': `Bearer ${ this.openaiAPIKey }`,
+					'Content-Type': 'application/json',
+				},
+				responseType: 'arraybuffer',
+			});
+
+			this.logger.debug('Received audio response', {
+				contentType: response.headers['content-type'],
+				dataLength: response.data.length,
+			});
+
+			const fileBuffer = Buffer.from(response.data);
+
+			// Subir a UploadService
+			const uploadData = await UploadService.createAttachment(fileBuffer, {
+				acl: 'public-read',
+				mimeType: 'audio/mpeg',
+				extension: 'mp3',
+				prefix: 'audio',
+			});
+
+			this.logger.info('Audio file uploaded successfully', {
+				location: uploadData.data.Location,
+			});
+
+			// Obtener stream para devolver a Telegram
+			const streamAudio = await axios({
+				method: 'GET',
+				url: uploadData.data.Location,
+				responseType: 'stream',
+			});
+
+			// Devolver objeto con URL y stream
+			return {
+				url: uploadData.data.Location,
+				stream: streamAudio.data,
+			};
+		} catch(error) {
+			this.logger.error('Error creating audio from text', {
+				error: error.message,
+				stack: error.stack,
+				response: error.response?.data,
+			});
+
+			// Propagar el error para manejarlo en el nivel superior
+			throw new Error(`Error creating audio: ${ error.message }`);
+		}
+	}
+
+	static async convertAudioToText(filePath) {
+		try {
+			this.logger.info('Converting audio to text', {
+				filePath,
+			});
+
+			if(!fs.existsSync(filePath)) {
+				throw new Error(`File not found: ${ filePath }`);
+			}
+
+			const form = new FormData();
+			form.append('file', fs.createReadStream(filePath));
+			form.append('model', 'whisper-1');
+
+			const response = await axios.post('https://api.openai.com/v1/audio/transcriptions', form, {
+				headers: {
+					'Authorization': `Bearer ${ this.openaiAPIKey }`,
+					...form.getHeaders(),
+				},
+			});
+
+			this.logger.info('Audio transcribed successfully', {
+				textLength: response.data?.text?.length,
+			});
+
+			return response.data?.text;
+		} catch(error) {
+			this.logger.error('Error converting audio to text', {
+				error: error.message,
+				stack: error.stack,
+				response: error.response?.data,
+			});
+
+			// Propagar el error para manejarlo en el nivel superior
+			throw new Error(`Error transcribing audio: ${ error.message }`);
+		}
+	}
+
+	static async createAiImageFromText(text) {
+		try {
+			// Configurar la solicitud para streaming
+			const response = await axios.post('https://api.openai.com/v1/images/generations', {
+				model: 'dall-e-3',
+				prompt: text,
+				n: 1,
+				size: '1024x1024', // Tamaño corregido según el ejemplo de la documentación
+			}, {
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${ this.openaiAPIKey }`,
+				},
+			});
+
+			// Asegúrate de acceder correctamente a la URL de la imagen generada
+			const imageUrl = response.data.data[0].url;
+
+			// Obtener el buffer del archivo
+			const fileBuffer = await axios.get(imageUrl, {
+				responseType: 'arraybuffer',
+			});
+
+			// Subir la imagen utilizando el servicio de carga
+			const data = await UploadService.createAttachment(fileBuffer.data, {
+				acl: 'public-read',
+				mimeType: 'image/png',
+				extension: 'png',
+			});
+
+			return [
+				{
+					url: data.data.Location,
+				},
+			];
+
+		} catch(error) {
+			if(error.response) {
+				// El servidor respondió con un código de estado fuera del rango 2xx
+				console.error('Error response data:', error.response.data);
+				console.error('Error response status:', error.response.status);
+				console.error('Error response headers:', error.response.headers);
+			} else if(error.request) {
+				// La solicitud se hizo pero no se recibió respuesta
+				console.error('Error request data:', error.request);
+			} else {
+				// Algo pasó al configurar la solicitud que desencadenó un error
+				console.error('Error message:', error.message);
+			}
+			console.error('Error config:', error.config);
+			return 'There was an error generating the image';
 		}
 	}
 }

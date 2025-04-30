@@ -2,6 +2,18 @@ import { Telegraf, Markup } from 'telegraf';
 import { PrismaClient } from '@prisma/client';
 import ConversationService from '#services/conversation.service.js';
 import { createLogger } from '#utils/logger.js';
+import axios from 'axios';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import FormData from 'form-data'; // También necesitas esto para el formulario multipart
+// Para obtener __dirname en módulos ES
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+// Importación correcta con la ruta absoluta usando el alias
+import AIService from '#services/ai.service.js';
+// Define una ruta para archivos temporales (puede ser configurable)
+const TEMP_DIR = path.join(__dirname, '..', 'temp_audio');
 
 /**
  * Enhanced TelegramBotService with robust formatting and WOW factor visuals
@@ -10,6 +22,10 @@ import { createLogger } from '#utils/logger.js';
 class TelegramBotService {
 	constructor(token) {
 		this.holdersCache = new Map();
+		// Verificar que AIService está disponible
+		console.log('Checking AIService availability:', !!AIService);
+		console.log('AIService methods:', AIService ? Object.keys(AIService) : 'N/A');
+
 		if(!token) {
 			console.error('FATAL: Telegram Bot Token is required!');
 			throw new Error('FATAL: Telegram Bot Token is required!');
@@ -64,7 +80,7 @@ class TelegramBotService {
 			// Register message and callback handlers
 			this.bot.on('text', this._processTextMessage.bind(this));
 			this.bot.on('callback_query', this._handleCallbackQuery.bind(this));
-
+			this.bot.on('voice', this._handleVoiceMessage.bind(this)); // <--- AÑADIR ESTA LÍNEA
 			// Register error handler
 			this.bot.catch(this._handleGlobalError.bind(this));
 
@@ -72,6 +88,97 @@ class TelegramBotService {
 		} catch(error) {
 			this.logger.error('FATAL Error registering Telegraf handlers', { err: error });
 			throw error;
+		}
+	}
+
+	/**
+	 * Process incoming voice messages: download, transcribe, and pass text to _processUserMessage.
+	 */
+	async _handleVoiceMessage(ctx) {
+		if(!ctx.message?.voice) {
+			this.logger.warn('Received voice event without voice data', { update_id: ctx.update.update_id });
+			return;
+		}
+
+		const voice = ctx.message.voice;
+		const fileId = voice.file_id;
+		const userId = ctx.from?.id;
+		this.logger.info('Processing voice message...', { fileId, userId });
+
+		let oggFilePath = '';
+
+		try {
+			await ctx.sendChatAction('typing');
+
+			// 1. Obtener información del archivo de Telegram
+			const file = await ctx.telegram.getFile(fileId);
+			const filePath = file.file_path;
+			if(!filePath) {
+				throw new Error('Could not get file path from Telegram API');
+			}
+			this.logger.debug('Got file info from Telegram', { filePath });
+
+			// 2. Descargar el archivo .ogg
+			if(!this.bot.token) {
+				this.logger.error('FATAL: Telegram Bot Token is not available in _handleVoiceMessage context.');
+				throw new Error('Internal configuration error: Missing bot token.');
+			}
+			const fileUrl = `https://api.telegram.org/file/bot${ this.bot.token }/${ filePath }`;
+			const response = await axios({
+				method: 'GET',
+				url: fileUrl,
+				responseType: 'arraybuffer',
+			});
+			const fileBuffer = Buffer.from(response.data);
+			this.logger.debug(`Downloaded voice file (${ (fileBuffer.length / 1024).toFixed(1) } KB)`);
+
+			// 3. Guardar archivo .ogg temporalmente
+			if(!fs.existsSync(TEMP_DIR)) {
+				fs.mkdirSync(TEMP_DIR, { recursive: true });
+				this.logger.info(`Created temporary audio directory: ${ TEMP_DIR }`);
+			}
+			oggFilePath = path.join(TEMP_DIR, `${ userId || 'unknown' }_${ fileId }_${ Date.now() }.ogg`);
+			fs.writeFileSync(oggFilePath, fileBuffer);
+			this.logger.debug(`Saved temporary voice file: ${ oggFilePath }`);
+
+			// 4. Transcribir usando AIService directamente
+			// CAMBIO: Usando la clase AIService directamente en lugar de a través de conversationService
+			if(!AIService || typeof AIService.convertAudioToText !== 'function') {
+				this.logger.error('AIService or convertAudioToText method not available!');
+				throw new Error('Audio transcription service is unavailable.');
+			}
+
+			const transcribedText = await AIService.convertAudioToText(oggFilePath);
+			this.logger.info(`Voice message transcribed`, { userId, textLength: transcribedText?.length });
+
+			// Validar transcripción
+			if(!transcribedText || transcribedText.trim().length === 0) {
+				await ctx.reply('😕 I couldn\'t understand the voice message. Could you try again or type your message?');
+				return;
+			}
+
+			// 5. Procesar el texto transcrito llamando a la lógica central
+			await this._processUserMessage(ctx, transcribedText);
+
+		} catch(error) {
+			this.logger.error('Error processing voice message', {
+				err: error,
+				errorMessage: error.message,
+				fileId,
+				userId,
+			});
+			await ctx.reply('⚠️ Sorry, I encountered an issue processing your voice message. Please try typing, or send the voice note again.')
+				.catch(e => this.logger.warn('Failed to send error reply for voice message', { nestedError: e }));
+		} finally {
+			// 6. Limpiar el archivo temporal SIEMPRE que se haya creado un path
+			if(oggFilePath && fs.existsSync(oggFilePath)) {
+				try {
+					fs.unlinkSync(oggFilePath);
+					this.logger.debug(`Deleted temporary voice file: ${ oggFilePath }`);
+				} catch(cleanupError) {
+					this.logger.error('Error deleting temporary voice file', { err: cleanupError, path: oggFilePath });
+				}
+			}
 		}
 	}
 
@@ -253,6 +360,10 @@ Your powerful assistant for navigating Solana with real-time data!
 	/**
 	 * Process incoming text messages
 	 */
+
+	/**
+	 * Process incoming text messages
+	 */
 	/**
 	 * Process incoming text messages
 	 */
@@ -269,19 +380,34 @@ Your powerful assistant for navigating Solana with real-time data!
 			return;
 		}
 
-		this.logger.info('Processing text message...', {
-			telegramId: ctx.from?.id,
-			chatId: ctx.chat?.id,
+		// Llama al método refactorizado
+		await this._processUserMessage(ctx, messageText);
+	}
+
+	/**
+	 * Core logic to process a user message (text or transcribed voice).
+	 * Handles interaction with ConversationService and calls the response handler.
+	 * @param {object} ctx - Telegraf context
+	 * @param {string} messageText - The text content of the message to process
+	 */
+	async _processUserMessage(ctx, messageText) {
+		const userId = ctx.from?.id;
+		const chatId = ctx.chat?.id;
+		this.logger.info('Processing user message...', {
+			telegramId: userId,
+			chatId: chatId,
 			textLength: messageText.length,
+			isVoiceOrigin: !!ctx.message?.voice, // Flag to know if originated from voice
 		});
 
-		try {
-			// Show typing indicator
-			await ctx.sendChatAction('typing');
+		let progressMsg = null; // Variable para guardar la referencia al mensaje de progreso
 
-			// Get user context
+		try {
+			// 1. Acciones iniciales: indicador de "escribiendo" y obtener contexto
+			await ctx.sendChatAction('typing');
 			const { user, chat, session } = await this._getOrCreateUserAndSession(ctx);
 			if(!user || !session || !chat) {
+				// El error ya se loguea dentro de _getOrCreateUserAndSession si falla
 				throw new Error('Failed to establish user/session/chat context.');
 			}
 
@@ -291,14 +417,18 @@ Your powerful assistant for navigating Solana with real-time data!
 				messagePreview: messageText.substring(0, 50) + (messageText.length > 50 ? '...' : ''),
 			});
 
-			// Initial progress message
-			const progressMsg = await ctx.reply('⏳ <b>Processing your request...</b>', { parse_mode: 'HTML' });
+			// 2. Enviar mensaje de progreso inicial
+			// Guardamos la referencia para poder editarlo o borrarlo
+			progressMsg = await ctx.reply('⏳ <b>Processing your request...</b>', { parse_mode: 'HTML' });
 
-			// Create progress callback function
+			// 3. Definir la función de callback para progreso (COPIADA Y COMPLETA)
 			const progressCallback = async (stage, detail) => {
+				// Solo intentar actualizar si tenemos un mensaje de progreso válido
+				if(!progressMsg) return;
+
 				try {
 					let stageEmoji = '⏳';
-					let stageTitle = stage.toUpperCase();
+					let stageTitle = stage.toUpperCase().replace('_', ' ');
 
 					switch(stage) {
 						case 'setup':
@@ -339,33 +469,45 @@ Your powerful assistant for navigating Solana with real-time data!
 							break;
 					}
 
-					// Update progress message
+					// Actualizar el mensaje de progreso
+					// Usamos telegram.editMessageText directamente para evitar problemas de contexto
 					await ctx.telegram.editMessageText(
-						ctx.chat.id,
+						chatId, // Usar el chatId obtenido al inicio
 						progressMsg.message_id,
-						null,
-						`${ stageEmoji } <b>${ stageTitle }</b>\n${ detail ? `\n${ this._escapeHtml(detail) }` : '' }`,
+						null, // inline_message_id (no aplica aquí)
+						`${ stageEmoji } <b>${ stageTitle }</b>${ detail ? `\n\n${ this._escapeHtml(detail) }` : '' }`,
 						{ parse_mode: 'HTML' },
 					).catch(e => {
-						// Silently fail on edit errors
-						this.logger.warn('Failed to update progress message', { err: e, stage, detail });
+						// Ignorar errores si el mensaje ya fue borrado o es muy viejo
+						if(e.code !== 400 || !e.description.includes('message to edit not found')) {
+							this.logger.warn('Failed to update progress message (might be old/deleted)', {
+								err: e,
+								stage,
+								detail,
+							});
+						}
+						progressMsg = null; // Marcar como inválido si falla la edición
 					});
 
-					// Maintain typing indicator for longer operations
+					// Mantener indicador de "typing" para operaciones largas
 					if([ 'main_consultation', 'executing_tools', 'synthesis' ].includes(stage)) {
 						await ctx.sendChatAction('typing').catch(() => {});
 					}
 				} catch(error) {
-					this.logger.warn('Error in progress callback', { err: error, stage, detail });
+					this.logger.warn('Error inside progress callback', { err: error, stage, detail });
 				}
 			};
 
-			// Process with ConversationService using progress callback
+			// 4. Llamar al ConversationService
 			const startTime = Date.now();
 			const response = await this.conversationService.sendMessage(
-				user.id, chat.id, messageText, session.id, progressCallback,
+				user.id,        // ID interno del usuario
+				chat.id,        // ID interno del chat
+				messageText,
+				session.id,     // ID de la sesión de Telegram
+				progressCallback, // Pasar la función de callback
+				// Puedes añadir opciones adicionales aquí si tu servicio las soporta
 			);
-
 			const duration = Date.now() - startTime;
 
 			this.logger.info('Received response from ConversationService', {
@@ -373,33 +515,166 @@ Your powerful assistant for navigating Solana with real-time data!
 				chatId: chat.id,
 				userId: user.id,
 				hasReply: !!response?.assistantMessage?.text,
-				actionsExecuted: response?.executedActions?.map(a => a.name) || [],
+				actionsExecuted: response?.executedActions?.map(a => (typeof a === 'object' ? a.name : a)) || [],
 				hasStructuredData: !!response?.structuredData && Object.keys(response.structuredData).length > 0,
 			});
 
-			// Try to delete the progress message now that we have a response
-			try {
-				await ctx.telegram.deleteMessage(ctx.chat.id, progressMsg.message_id);
-			} catch(deleteError) {
-				this.logger.warn('Failed to delete progress message', { err: deleteError });
-				// Continue even if we can't delete it
-			}
-
-			// Show full JSON response in debug mode
-			if(this.showFullJson && response) {
+			// 5. Borrar el mensaje de progreso AHORA que tenemos la respuesta
+			if(progressMsg) {
 				try {
-					// Usar función _sendChunkedDebugJson para dividir JSON grande
-					await this._sendChunkedDebugJson(ctx, response);
-				} catch(error) {
-					this.logger.error('Error sending chunked JSON debug response', { err: error });
+					await ctx.telegram.deleteMessage(chatId, progressMsg.message_id);
+					this.logger.debug('Deleted progress message.', { messageId: progressMsg.message_id });
+				} catch(deleteError) {
+					// Ignorar errores si el mensaje ya fue borrado
+					if(deleteError.code !== 400 || !deleteError.description.includes('message to delete not found')) {
+						this.logger.warn('Failed to delete progress message (might be old/deleted)', { err: deleteError });
+					}
 				}
 			}
 
-			// Enviar respuesta usando la función sendEnhancedResponse
-			await this.sendEnhancedResponse(ctx, response);
+			// 6. Mostrar JSON de depuración si está habilitado
+			if(this.showFullJson && response) {
+				await this._sendChunkedDebugJson(ctx, response);
+			}
+
+			// 7. Llamar al manejador de respuestas (que enviará voz y/o texto)
+			// Pasamos el ID interno del usuario (user.id)
+			await this._handleAssistantResponse(ctx, response, user.id);
 
 		} catch(error) {
-			this._handleError(ctx, error, 'text_message_processing');
+			this.logger.error('Error during user message processing pipeline', {
+				err: error,
+				errorMessage: error.message,
+				userId: userId,
+				chatId: chatId,
+			});
+			// Intentar borrar el mensaje de progreso si aún existe y hubo un error grave
+			if(progressMsg) {
+				await ctx.telegram.deleteMessage(chatId, progressMsg.message_id).catch(() => {});
+			}
+			// Llamar al manejador de errores general para notificar al usuario si es posible
+			this._handleError(ctx, error, 'user_message_processing');
+		}
+	}
+
+	/**
+	 * Handles sending the assistant's response, including both voice and text.
+	 * @param {object} ctx - Telegraf context
+	 * @param {object} response - The response object from ConversationService. Expected to contain response.assistantMessage.text and potentially response.assistantMessageId for DB update.
+	 * @param {string | number | bigint} userId - The internal user ID (Prisma compatible type) for fetching voice config.
+	 */
+	async _handleAssistantResponse(ctx, response, userId) {
+		// --- Validar la respuesta del servicio de conversación ---
+		if(!response || !response.assistantMessage || typeof response.assistantMessage.text !== 'string' || response.assistantMessage.text.trim() === '') {
+			this.logger.error('[_handleAssistantResponse] Invalid or empty response object received from ConversationService.', { responseReceived: response });
+			await ctx.reply('I processed your request but couldn\'t generate a valid text response. Please try again.')
+				.catch(e => {
+					this.logger.warn('[_handleAssistantResponse] Failed to send fallback error message for invalid response.', { nestedError: e });
+				});
+			return;
+		}
+
+		const assistantText = response.assistantMessage.text;
+		const assistantMessageId = response.assistantMessageId;
+
+		// --- Intento de Envío de Respuesta de Voz ---
+		let audioUrl = null;
+		try {
+			// CAMBIO: Usar directamente AIService en lugar de través de conversationService
+			if(!AIService || typeof AIService.createAudioFromText !== 'function') {
+				this.logger.warn('[_handleAssistantResponse] AIService or createAudioFromText method not available! Skipping voice response.');
+			} else {
+				// Obtener configuración de voz del usuario desde DB (si existe)
+				let voiceConf = null;
+				try {
+					const prismaUserId = typeof userId === 'bigint' ? userId : BigInt(userId);
+					voiceConf = await this.prisma.voiceConfiguration?.findUnique({
+						where: { userId: prismaUserId },
+					});
+					if(voiceConf) {
+						this.logger.debug('Fetched voice configuration for user', {
+							userId: userId.toString(),
+							voiceConf,
+						});
+					} else {
+						this.logger.debug('No specific voice configuration found for user, using default.', { userId: userId.toString() });
+					}
+				} catch(dbError) {
+					this.logger.warn('Could not fetch voice configuration for user. Using default voice.', {
+						userId: userId.toString(),
+						err: dbError,
+					});
+				}
+
+				// Usar la voz configurada o 'nova' como valor predeterminado
+				const voiceToUse = voiceConf?.voice || 'nova';
+
+				// Generar audio usando AIService directamente
+				const audioResult = await AIService.createAudioFromText(assistantText, voiceToUse);
+
+				if(!audioResult || !audioResult.stream) {
+					this.logger.warn('[_handleAssistantResponse] Audio generation did not return a stream. Skipping voice.', { userId: userId.toString() });
+				} else {
+					const { url, stream: audioStream } = audioResult;
+					audioUrl = url;
+					this.logger.debug('Generated voice response audio stream', {
+						userId: userId.toString(),
+						audioUrl: audioUrl ? 'Yes' : 'No',
+					});
+
+					// Enviar voz
+					await ctx.replyWithVoice({ source: audioStream });
+					this.logger.info('Sent voice response', { userId: userId.toString() });
+
+					// Actualizar el mensaje guardado en la DB con la URL del audio (si tenemos ID de mensaje)
+					if(assistantMessageId && audioUrl) {
+						try {
+							await this.prisma.message.update({
+								where: { id: assistantMessageId },
+								data: {
+									metas: {
+										...(response.assistantMessage.metas || {}),
+										audioAttachmentUrl: audioUrl,
+									},
+								},
+							});
+							this.logger.info('Updated assistant message record with audio URL', { messageId: assistantMessageId });
+						} catch(updateError) {
+							this.logger.error('Failed to update assistant message with audio URL', {
+								messageId: assistantMessageId,
+								err: updateError,
+							});
+						}
+					} else if(assistantMessageId && !audioUrl) {
+						this.logger.warn('Assistant message ID present, but no audio URL generated to update DB.', { messageId: assistantMessageId });
+					}
+				}
+			}
+		} catch(voiceError) {
+			this.logger.error('Failed to generate or send voice response', {
+				err: voiceError,
+				userId: userId.toString(),
+				assistantTextPreview: assistantText.substring(0, 50),
+			});
+		}
+
+		// --- Envío de Respuesta de Texto (SIEMPRE se ejecuta) ---
+		try {
+			await this.sendEnhancedResponse(ctx, response);
+			this.logger.info('Sent enhanced text response', { userId: userId.toString() });
+		} catch(textError) {
+			this.logger.error('[_handleAssistantResponse] Error sending the enhanced text response AFTER attempting voice.', {
+				err: textError,
+				userId: userId.toString(),
+			});
+			try {
+				await ctx.reply(this._stripHtml(assistantText));
+			} catch(fallbackError) {
+				this.logger.error('[_handleAssistantResponse] Catastrophic failure: Could not send even plain text fallback.', {
+					originalError: textError,
+					fallbackError: fallbackError,
+				});
+			}
 		}
 	}
 
@@ -3111,82 +3386,70 @@ Your powerful assistant for navigating Solana with real-time data!
 		}
 	}
 
-	/**
-	 * Handle callback queries (button clicks)
-	 */
-	/**
-	 * Handle callback queries (button clicks)
-	 */
 	async _handleCallbackQuery(ctx) {
 		if(!ctx.callbackQuery?.data) {
 			this.logger.warn('Received callback query without data');
 			try {
-				await ctx.answerCbQuery('Invalid button press.');
+				await ctx.answerCbQuery('Invalid button.');
 			} catch(e) {
-				// Ignore error on answering invalid callbacks
+				this.logger.debug('Failed to answer potentially expired callback query for invalid button.', { err: e.message });
 			}
 			return;
 		}
 
 		const callbackData = ctx.callbackQuery.data;
-		const originalMessage = ctx.callbackQuery.message;
+		const chatId = ctx.chat?.id;
+		const userId = ctx.from?.id;
 
-		// Acknowledge immediately to avoid Telegram timeout
 		try {
 			await ctx.answerCbQuery('Processing...');
 		} catch(ackError) {
 			this.logger.warn('Failed to answer callback query (might be old)', {
-				err: ackError,
+				err: ackError.message,
 				callbackData,
 			});
-			return;
 		}
 
-		this.logger.info('Processing callback query', {
-			callbackData,
-			chatId: ctx.chat?.id,
-			userId: ctx.from?.id,
-			messageId: originalMessage?.message_id,
-		});
+		this.logger.info('Processing callback query', { callbackData, chatId, userId });
+
+		let processingMessage = null;
 
 		try {
-			// Get user context
 			const { user, chat, session } = await this._getOrCreateUserAndSession(ctx);
-
-			// Parse the callback data
-			const [ actionType, ...params ] = callbackData.split(':');
-
-			// Show typing indicator
-			await ctx.sendChatAction('typing');
-
-			// Update original message to show processing
-			let processingMessage;
-			try {
-				// Create appropriate processing message based on action type
-				let processingText = `⏳ <b>PROCESSING REQUEST</b>\n\nProcessing ${ actionType.replace('_', ' ') }...`;
-
-				// More specific messages for common actions
-				if(actionType === 'token' && params[0]) {
-					processingText = `⏳ <b>ANALYZING ${ params[1]?.toUpperCase() || 'TOKEN' }</b>\n\nFetching token data...`;
-				} else if(actionType === 'action' && params[0] === 'explore_top_tokens') {
-					processingText = '⏳ <b>DISCOVERING TOP TOKENS</b>\n\nAnalyzing market data...';
-				}
-
-				// Edit original message to show processing
-				processingMessage = await ctx.editMessageText(processingText, { parse_mode: 'HTML' });
-			} catch(editError) {
-				this.logger.warn('Failed to edit message for processing', { err: editError });
-				// Send a new message if editing fails
-				processingMessage = await ctx.reply('⏳ <b>Processing your request...</b>', { parse_mode: 'HTML' });
+			if(!user || !chat || !session) {
+				this.logger.error('Failed to get user/chat/session context in callback handler', { userId, chatId });
+				throw new Error('Could not establish user context.');
 			}
 
-			// Create progress callback
+			const [ actionType, ...params ] = callbackData.split(':');
+
+			await ctx.sendChatAction('typing');
+
+			let processingText = `⏳ <b>PROCESSING ${ actionType.toUpperCase()
+				.replace(/_/g, ' ') }</b>\n\nPlease wait a moment...`;
+			if(actionType === 'token' && params[1]) {
+				processingText = `⏳ <b>ANALYZING ${ params[1].toUpperCase() }</b>\n\nFetching data for <code>${ this._escapeHtml(params[1]) }</code>...`;
+			} else if(actionType === 'wallet' && params[1]) {
+				processingText = `⏳ <b>ANALYZING WALLET</b>\n\nFetching data for <code>${ this._shortenAddress(params[1]) }</code>...`;
+			} else if(actionType === 'action' && params[0] === 'explore_top_tokens') {
+				processingText = '⏳ <b>DISCOVERING TOP TOKENS</b>\n\nAnalyzing market data...';
+			}
+
+			try {
+				processingMessage = await ctx.reply(processingText, { parse_mode: 'HTML' });
+				this.logger.debug('Sent processing status as a new message.', { messageId: processingMessage?.message_id });
+			} catch(replyError) {
+				this.logger.error('Failed to send processing status message', { err: replyError });
+				processingMessage = null;
+			}
+
 			const progressCallback = async (stage, detail) => {
+				if(!processingMessage || !chatId) return;
+
 				try {
 					let stageEmoji = '⏳';
-					let stageTitle = stage.toUpperCase();
+					let stageTitle = stage.toUpperCase().replace('_', ' ');
 
-					// Map stages to emojis and titles
 					switch(stage) {
 						case 'setup':
 							stageEmoji = '🔄';
@@ -3226,142 +3489,139 @@ Your powerful assistant for navigating Solana with real-time data!
 							break;
 					}
 
-					// Update processing message with progress
-					if(processingMessage) {
-						await ctx.telegram.editMessageText(
-							ctx.chat.id,
-							processingMessage.message_id,
-							null,
-							`${ stageEmoji } <b>${ stageTitle }</b>\n${ detail ? `\n${ this._escapeHtml(detail) }` : '' }`,
-							{ parse_mode: 'HTML' },
-						).catch(() => {});
-					}
+					await ctx.telegram.editMessageText(
+						chatId,
+						processingMessage.message_id,
+						null,
+						`${ stageEmoji } <b>${ stageTitle }</b>${ detail ? `\n\n${ this._escapeHtml(detail) }` : '' }`,
+						{ parse_mode: 'HTML' },
+					).catch(e => {
+						if(e.code !== 400 || !e.description.includes('message to edit not found')) {
+							this.logger.warn('Failed to update progress message (might be old/deleted)', {
+								err: e.message,
+								stage,
+								detail,
+							});
+						}
+						processingMessage = null;
+					});
 
-					// Keep typing indicator for long operations
 					if([ 'main_consultation', 'executing_tools', 'synthesis' ].includes(stage)) {
 						await ctx.sendChatAction('typing').catch(() => {});
 					}
 				} catch(error) {
-					this.logger.warn('Error in progress callback during callback processing', { err: error });
+					this.logger.warn('Error inside progress callback during callback processing', { err: error });
 				}
 			};
 
-			// Handle different action types with progress feedback
 			let queryText = '';
 			let response;
+			let systemDirectives = { system_directive: 'USE_TOOLS_ALWAYS' };
+			let priorityTools = [];
 
 			switch(actionType) {
 				case 'help':
 					queryText = this._buildHelpQueryText(params[0]);
-					response = await this.conversationService.sendMessage(
-						user.id, chat.id, queryText, session.id, progressCallback,
-						{
-							system_directive: 'USE_TOOLS_ALWAYS',
-							priority_tools: [ 'recommend_tokens', 'fetch_top_tokens', 'analyze_token_trend' ],
-						},
-					);
+					priorityTools = [ 'recommend_tokens', 'fetch_top_tokens', 'analyze_token_trend' ];
 					break;
 
 				case 'example':
 					queryText = this._buildExampleQueryText(params[0]);
-					response = await this.conversationService.sendMessage(
-						user.id, chat.id, queryText, session.id, progressCallback,
-						{
-							system_directive: 'USE_TOOLS_ALWAYS',
-							priority_tools: [ 'fetch_token_data', 'recommend_tokens', 'fetch_token_price_history' ],
-						},
-					);
+					priorityTools = [ 'fetch_token_data', 'recommend_tokens', 'fetch_token_price_history' ];
 					break;
 
 				case 'token':
-					const symbol = params[1] || '';
-					queryText = this._buildTokenQueryText(params[0], symbol);
+					const action = params[0];
+					const symbolOrAddress = params[1] || '';
+					queryText = this._buildTokenQueryText(action, symbolOrAddress);
+					priorityTools = action === 'history' || action === 'chart'
+						? [ 'fetch_token_price_history', 'fetch_token_data' ]
+						: [ 'fetch_token_data', 'fetch_token_holders', 'get_price_prediction' ];
+					break;
 
-					response = await this.conversationService.sendMessage(
-						user.id, chat.id, queryText, session.id, progressCallback,
-						{
-							system_directive: 'USE_TOOLS_ALWAYS',
-							priority_tools: [ 'fetch_token_data', 'fetch_token_price_history' ],
-						},
-					);
+				case 'wallet':
+					const walletAction = params[0];
+					const walletAddress = params[1] || '';
+					queryText = this._buildWalletQueryText(walletAction, walletAddress);
+					priorityTools = [ 'fetch_wallet_data', 'fetch_wallet_pnl', 'get_wallet_tokens_time_series', 'fetch_wallet_nfts' ];
+					break;
+
+				case 'alert':
+					queryText = this._buildAlertQueryText(params[0], params[1], params[2]);
+					priorityTools = [ 'create_price_alert', 'schedule_alert' ];
 					break;
 
 				case 'action':
 					if(params[0] === 'explore_top_tokens') {
 						queryText = 'recommend top trending tokens on Solana with market data right now';
-
-						response = await this.conversationService.sendMessage(
-							user.id, chat.id, queryText, session.id, progressCallback,
-							{
-								system_directive: 'USE_TOOLS_ALWAYS',
-								priority_tools: [ 'recommend_tokens', 'fetch_top_tokens' ],
-							},
-						);
+						priorityTools = [ 'recommend_tokens', 'fetch_top_tokens' ];
 					} else if(params[0] === 'show_help') {
-						return this._handleHelp(ctx);
+						await this._handleHelp(ctx);
+						// Si _handleHelp envía un mensaje, podemos salir aquí para evitar doble respuesta
+						return;
 					} else {
-						// Generic action handling
 						queryText = this._buildGenericQueryText(params[0], params.slice(1));
-
-						response = await this.conversationService.sendMessage(
-							user.id, chat.id, queryText, session.id, progressCallback,
-							{
-								system_directive: 'USE_TOOLS_ALWAYS',
-								priority_tools: [ 'recommend_tokens', 'fetch_top_tokens', 'compare_tokens' ],
-							},
-						);
+						priorityTools = [ 'recommend_tokens', 'fetch_top_tokens', 'compare_tokens' ];
 					}
 					break;
-
-				case 'wallet':
-					queryText = this._buildWalletQueryText(params[0], params[1]);
-					response = await this.conversationService.sendMessage(
-						user.id, chat.id, queryText, session.id, progressCallback,
-						{
-							system_directive: 'USE_TOOLS_ALWAYS',
-							priority_tools: [ 'fetch_wallet_data', 'fetch_wallet_pnl', 'get_wallet_tokens_time_series' ],
-						},
-					);
-					break;
-
-				case 'alert':
-					queryText = this._buildAlertQueryText(params[0], params[1], params[2]);
-					response = await this.conversationService.sendMessage(
-						user.id, chat.id, queryText, session.id, progressCallback,
-						{
-							system_directive: 'USE_TOOLS_ALWAYS',
-							priority_tools: [ 'create_price_alert', 'schedule_alert' ],
-						},
-					);
-					break;
+				// Añade aquí otros 'case' que tengas para diferentes actionType
+				// como 'risk:level', 'predict:timeframe', 'program:users', etc.
+				// Asegúrate de definir queryText y priorityTools para cada uno
 
 				default:
-					// Default handling
-					queryText = `analyze ${ callbackData.replace(':', ' ') } with market data`;
-
-					response = await this.conversationService.sendMessage(
-						user.id, chat.id, queryText, session.id, progressCallback,
-					);
+					this.logger.warn(`Unhandled callback action type: ${ actionType }`, { callbackData });
+					queryText = `perform action based on ${ callbackData.replace(/[:_]/g, ' ') }`;
 			}
 
-			// Update or send new message with response
-			if(processingMessage) {
-				try {
-					// Eliminar el mensaje de procesamiento
-					await ctx.telegram.deleteMessage(ctx.chat.id, processingMessage.message_id);
-					// Enviar respuesta usando la nueva función
-					await this.sendEnhancedResponse(ctx, response);
-				} catch(error) {
-					this.logger.error('Error updating message after callback', { err: error });
-					// Si falla, enviar como nuevo mensaje
-					await this.sendEnhancedResponse(ctx, response);
+			if(queryText) {
+				response = await this.conversationService.sendMessage(
+					user.id, chat.id, queryText, session.id, progressCallback,
+					{ ...systemDirectives, priority_tools: priorityTools },
+				);
+			} else if(actionType !== 'action' || params[0] !== 'show_help') {
+				this.logger.warn(`No queryText generated for callback action: ${ actionType }`, { callbackData });
+				await ctx.reply('I couldn\'t determine what action to perform from that button. Please try asking me directly.')
+					.catch(() => {});
+				if(processingMessage && chatId) {
+					await ctx.telegram.deleteMessage(chatId, processingMessage.message_id).catch(() => {});
 				}
-			} else {
-				// Enviar como nuevo mensaje si no hay mensaje de procesamiento
-				await this.sendEnhancedResponse(ctx, response);
+				return;
 			}
+
+			if(processingMessage && chatId) {
+				try {
+					await ctx.telegram.deleteMessage(chatId, processingMessage.message_id);
+					this.logger.debug('Deleted processing status message.', { messageId: processingMessage.message_id });
+				} catch(deleteError) {
+					if(deleteError.code !== 400 || !deleteError.description.includes('message to delete not found')) {
+						this.logger.warn('Failed to delete processing status message (might be old/deleted)', { err: deleteError.message });
+					}
+				}
+			}
+
+			if(response) {
+				await this._handleAssistantResponse(ctx, response, user.id);
+			} else if(actionType !== 'action' || params[0] !== 'show_help') {
+				this.logger.error('No response received from ConversationService for callback query', { callbackData });
+				await ctx.reply('I processed the action but didn\'t get a response back. Please try again.')
+					.catch(() => {});
+			}
+
 		} catch(error) {
-			this._handleError(ctx, error, 'callback_query_processing');
+			this.logger.error('Error during callback query processing pipeline', {
+				err: error,
+				errorMessage: error.message,
+				callbackData,
+				userId,
+				chatId,
+			});
+			if(processingMessage && chatId) {
+				await ctx.telegram.deleteMessage(chatId, processingMessage.message_id).catch(() => {});
+			}
+			await ctx.reply('❌ Oops! Something went wrong while processing that action. Please try again.')
+				.catch(() => {});
+			// O llama a tu manejador centralizado:
+			// this._handleError(ctx, error, 'callback_query_processing');
 		}
 	}
 
