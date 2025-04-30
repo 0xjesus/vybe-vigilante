@@ -924,7 +924,7 @@ Your powerful assistant for navigating Solana with real-time data!
 
 			if(topTokensDataFound) {
 				this.logger.info('[sendEnhancedResponse] Formatting top tokens section.');
-				const topTokensCard = this._formatTopTokensInfo(topTokensDataFound);
+				const topTokensCard = this._formatTopTokensInfo(true, topTokensDataFound);
 				if(topTokensCard) {
 					messageSections.push(topTokensCard);
 					this.logger.info('[sendEnhancedResponse] Top tokens section added.');
@@ -4136,114 +4136,173 @@ Your powerful assistant for navigating Solana with real-time data!
 		}
 	}
 
-	/**
-	 * Formatter especializado para datos de Top Tokens
-	 * Añade este método a tu clase TelegramBotService
-	 */
-	_formatTopTokensInfo(tokensData) {
-		try {
-			if(!tokensData || !tokensData.data) {
-				this.logger.warn('[_formatTopTokensInfo] Called with null or invalid data');
+	// In TelegramBotService.js
+	_formatTopTokensInfo(dataProvided = false, actionData = null) {
+		// Registro detallado para depuración
+		this.logger.info('_formatTopTokensInfo called with:', {
+			dataProvided,
+			actionDataType: typeof actionData,
+			actionDataIsNull: actionData === null,
+			actionDataKeys: actionData ? Object.keys(actionData) : [],
+		});
+
+		// Basic validation
+		if(!dataProvided || !actionData) {
+			this.logger.warn('No valid data provided for formatting top tokens');
+			return null;
+		}
+
+		// IMPORTANTE: Examinar la estructura real de actionData
+		this.logger.info('ActionData structure:', JSON.stringify(actionData, null, 2).substring(0, 500) + '...');
+
+		// Intentar encontrar los tokens en múltiples posibles ubicaciones
+		let tokens = [];
+
+		// Opción 1: Estructura esperada - actionData.data.recommendations
+		if(actionData.data && actionData.data.recommendations && Array.isArray(actionData.data.recommendations)) {
+			tokens = actionData.data.recommendations;
+			this.logger.info(`Found tokens in actionData.data.recommendations: ${ tokens.length }`);
+		}
+		// Opción 2: Estructura esperada alternativa - actionData.data.tokens
+		else if(actionData.data && actionData.data.tokens && Array.isArray(actionData.data.tokens)) {
+			tokens = actionData.data.tokens;
+			this.logger.info(`Found tokens in actionData.data.tokens: ${ tokens.length }`);
+		}
+		// Opción 3: Directamente en actionData.recommendations
+		else if(actionData.recommendations && Array.isArray(actionData.recommendations)) {
+			tokens = actionData.recommendations;
+			this.logger.info(`Found tokens directly in actionData.recommendations: ${ tokens.length }`);
+		}
+		// Opción 4: Directamente en actionData.tokens
+		else if(actionData.tokens && Array.isArray(actionData.tokens)) {
+			tokens = actionData.tokens;
+			this.logger.info(`Found tokens directly in actionData.tokens: ${ tokens.length }`);
+		}
+		// Opción 5: Si actionData es un objeto con count y recommendations
+		else if(actionData.count !== undefined && actionData.recommendations && Array.isArray(actionData.recommendations)) {
+			tokens = actionData.recommendations;
+			this.logger.info(`Found tokens in root actionData.recommendations: ${ tokens.length }`);
+		}
+		// Opción 6: Si todo falla, buscar recursivamente cualquier array que parezca contener tokens
+		else {
+			// Buscar recursivamente en el objeto cualquier array que contenga objetos con propiedades típicas de tokens
+			const findTokensArray = (obj, depth = 0) => {
+				if(depth > 3) return null; // Evitar recursión infinita
+
+				if(Array.isArray(obj) && obj.length > 0 &&
+					typeof obj[0] === 'object' &&
+					(obj[0].symbol || obj[0].token_symbol || obj[0].name || obj[0].price_usd)) {
+					return obj;
+				}
+
+				if(typeof obj === 'object' && obj !== null) {
+					for(const key in obj) {
+						const result = findTokensArray(obj[key], depth + 1);
+						if(result) return result;
+					}
+				}
+
+				return null;
+			};
+
+			const foundTokens = findTokensArray(actionData);
+			if(foundTokens) {
+				tokens = foundTokens;
+				this.logger.info(`Found tokens array through deep search: ${ tokens.length }`);
+			} else {
+				this.logger.warn('Could not find tokens array in any expected location', {
+					actionDataKeys: Object.keys(actionData),
+				});
 				return null;
 			}
-
-			this.logger.info('[_formatTopTokensInfo] Processing top tokens data', {
-				dataPreview: JSON.stringify(tokensData.data).substring(0, 200) + '...',
-			});
-
-			// Extraer los datos de tokens
-			let tokensList = [];
-			if(tokensData.data.tokens && tokensData.data.tokens.data) {
-				tokensList = tokensData.data.tokens.data;
-			} else if(Array.isArray(tokensData.data)) {
-				tokensList = tokensData.data;
-			}
-
-			if(!tokensList || tokensList.length === 0) {
-				this.logger.warn('[_formatTopTokensInfo] No tokens found in data');
-				return '<b>🏆 TOP TOKENS</b>\n\n<i>No token data available</i>';
-			}
-
-			// Limitar a 10 tokens para evitar mensajes muy largos
-			const topTokens = tokensList.slice(0, 10);
-
-			// Determinar criterio de ordenación
-			const sortBy = tokensData.data.sortBy || 'marketCap';
-			const order = tokensData.data.order || 'desc';
-			const page = tokensData.data.page || 1;
-
-			// Construcción de la tarjeta con el listado
-			let card = `<b>🏆 TOP TOKENS BY ${ sortBy.toUpperCase() }</b>\n\n`;
-
-			// Tabla de tokens con estilo visual
-			topTokens.forEach((token, index) => {
-				const symbol = token.symbol || 'UNKNOWN';
-				const name = token.name || symbol;
-				const price = parseFloat(token.price || 0);
-
-				// Determinar qué cambio de precio usar (1d o 7d)
-				let priceChange = parseFloat(token.price1d || token.price_change_24h || 0);
-				const timeframe = token.price1d !== undefined ? '24h' : '7d';
-
-				// Si no hay cambio a 1d, intentar con 7d
-				if(priceChange === 0 && (token.price7d !== undefined || token.price_change_7d !== undefined)) {
-					priceChange = parseFloat(token.price7d || token.price_change_7d || 0);
-				}
-
-				// Formatear cambio de precio con emoji
-				const changeEmoji = priceChange > 0 ? '📈' : (priceChange < 0 ? '📉' : '➡️');
-				const changeSign = priceChange > 0 ? '+' : '';
-				const changeText = `${ changeSign }${ priceChange !== 0 ? priceChange.toFixed(2) : '0.00' }%`;
-
-				// Formatear market cap
-				const marketCap = parseFloat(token.marketCap || 0);
-
-				// Formatear rank con emoji según posición
-				const rankEmoji = index === 0 ? '🥇' : (index === 1 ? '🥈' : (index === 2 ? '🥉' : `${ index + 1 }.`));
-
-				// Añadir fila para este token
-				card += `${ rankEmoji } <b>${ symbol }</b> - ${ name }\n`;
-				card += `   💰 Price: <b>$${ this._formatNumber(price) }</b> ${ changeEmoji } ${ changeText }\n`;
-
-				// Añadir market cap si está disponible
-				if(marketCap > 0) {
-					card += `   📊 MCap: <b>$${ this._formatNumber(marketCap, true) }</b>\n`;
-				}
-
-				// Añadir volumen si está disponible
-				const volume = parseFloat(token.usdValueVolume24h || token.volume_24h || 0);
-				if(volume > 0) {
-					card += `   🔄 Vol 24h: <b>$${ this._formatNumber(volume, true) }</b>\n`;
-				}
-
-				// Añadir verificación si está disponible
-				if(token.verified !== undefined) {
-					card += token.verified ? '   ✅ Verified\n' : '';
-				}
-
-				// Separador entre tokens excepto el último
-				if(index < topTokens.length - 1) {
-					card += `\n`;
-				}
-			});
-
-			// Información de paginación si hay
-			if(page && tokensList.length >= 10) {
-				card += `\n<i>Showing page ${ page }</i>`;
-			}
-
-			// Pie de página con fuente de datos
-			card += `\n\n<i>Data from Vybe Network API • ${ this._formatDate(new Date()) }</i>`;
-
-			return card;
-		} catch(error) {
-			this.logger.error('[_formatTopTokensInfo] Error formatting top tokens data', {
-				err: error,
-				errorMessage: error.message,
-				stackTrace: error.stack,
-			});
-			return `<b>🏆 TOP TOKENS</b>\n\n<i>Error formatting token data: ${ error.message }</i>`;
 		}
+
+		if(tokens.length === 0) {
+			this.logger.warn('Empty tokens array');
+			return null;
+		}
+
+		// Registra la primera entrada para depuración
+		this.logger.info('Sample token data:', JSON.stringify(tokens[0]));
+
+		// Format the tokens
+		let formattedInfo = '';
+		formattedInfo += '<b>📊 Top Tokens</b>\n\n';
+
+		tokens.forEach((token, index) => {
+			// Get basic token data with fallbacks for different structures
+			const symbol = token.symbol || token.token_symbol || '?';
+			const name = token.name || token.token_name || '?';
+
+			// Format price with appropriate precision
+			const price = parseFloat(token.price_usd || token.price || 0);
+			const priceFormatted = price < 0.01 && price > 0
+				? price.toExponential(2)
+				: price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+
+			// Get price change from various possible fields
+			const priceChange = parseFloat(token.price_change_1d || token.price_change_24h || token.price1d || 0);
+			const changeSymbol = priceChange >= 0 ? '🟢' : '🔴';
+
+			// Format the token entry
+			formattedInfo += `${ index + 1 }. <code>${ symbol }</code> | ${ name }\n`;
+			formattedInfo += `   💲Price: $${ priceFormatted } ${ changeSymbol } ${ Math.abs(priceChange)
+				.toFixed(2) }%\n`;
+
+			// Add market cap if available
+			if(token.marketCap || token.market_cap) {
+				const marketCap = parseFloat(token.marketCap || token.market_cap || 0);
+				let mcFormatted;
+
+				try {
+					mcFormatted = new Intl.NumberFormat('en-US', {
+						notation: 'compact',
+						compactDisplay: 'short',
+						maximumFractionDigits: 2,
+					}).format(marketCap);
+				} catch(e) {
+					// Fallback if Intl.NumberFormat fails
+					mcFormatted = this._formatLargeNumber(marketCap);
+				}
+
+				formattedInfo += `   💰MC: $${ mcFormatted }\n`;
+			}
+
+			// Add volume if available
+			if(token.volume_24h || token.volume) {
+				const volume = parseFloat(token.volume_24h || token.volume || 0);
+				let volFormatted;
+
+				try {
+					volFormatted = new Intl.NumberFormat('en-US', {
+						notation: 'compact',
+						compactDisplay: 'short',
+						maximumFractionDigits: 2,
+					}).format(volume);
+				} catch(e) {
+					// Fallback if Intl.NumberFormat fails
+					volFormatted = this._formatLargeNumber(volume);
+				}
+
+				formattedInfo += `   📊Vol: $${ volFormatted }\n`;
+			}
+
+			formattedInfo += '\n';
+		});
+
+		formattedInfo += '──────────────────────────';
+		return formattedInfo;
+	}
+
+	// Función auxiliar para formatear números grandes (por si Intl.NumberFormat no está disponible)
+	_formatLargeNumber(num) {
+		if(!num) return '0';
+		if(num >= 1e15) return (num / 1e15).toFixed(2) + 'Q'; // Cuatrillón
+		if(num >= 1e12) return (num / 1e12).toFixed(2) + 'T'; // Trillón
+		if(num >= 1e9) return (num / 1e9).toFixed(2) + 'B';   // Billón
+		if(num >= 1e6) return (num / 1e6).toFixed(2) + 'M';   // Millón
+		if(num >= 1e3) return (num / 1e3).toFixed(2) + 'K';   // Mil
+		return num.toFixed(2);
 	}
 
 	/**

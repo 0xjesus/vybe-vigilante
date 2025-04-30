@@ -48,6 +48,34 @@ class ConversationService {
 			const actions = {
 				actions: [
 					{
+						name: 'store_language_preference',
+						description: 'Almacena el idioma preferido por el usuario para futuras interacciones.',
+						parameters: {
+							type: 'object',
+							properties: {
+								language: {
+									type: 'string',
+									description: 'El código del idioma preferido (ej: "es" para español, "en" para inglés, "fr" para francés, etc.).',
+								},
+							},
+							required: [ 'language' ],
+						},
+						handlerFunction: 'storeLanguagePreference',
+						category: 'User Profile',
+						isActive: true,
+					},
+					{
+						name: 'get_language_preference',
+						description: 'Recupera el idioma preferido previamente almacenado del usuario para el chat actual.',
+						parameters: {
+							type: 'object',
+							properties: {},
+						},
+						handlerFunction: 'actionGetLanguagePreference',
+						category: 'User Profile',
+						isActive: true,
+					},
+					{
 						name: 'create_price_alert',
 						description: 'Sets up a notification for when a specific cryptocurrency token\'s price goes above or below a certain value in a given currency (default USD). Use this *only* when the user explicitly asks to set a price alert or monitor a specific price target.',
 						parameters: {
@@ -2492,8 +2520,13 @@ Response: Bitcoin BTC Ethereum ETH
 
 		try {
 			// Select only memory-related tools
-			const memoryToolNames = [ 'retrieve_memory_items', 'retrieve_memory_objects', 'semantic_query' ];
-
+			const memoryToolNames = [
+				'retrieve_memory_items',
+				'retrieve_memory_objects',
+				'semantic_query',
+				'store_language_preference',
+				'get_language_preference',  // Añadimos nuestras nuevas acciones
+			];
 			const memoryTools = this.availableActions.actions
 				.filter(action => action.isActive && memoryToolNames.includes(action.name))
 				.map(action => ({
@@ -4027,6 +4060,12 @@ If the user asks about investments, recommendations, or "what to invest in," YOU
 				case 'get_notification_preferences':
 					resultPayload = await this.actionGetNotificationPreferences(args, chatId);
 					break;
+				case 'store_language_preference':
+					resultPayload = await this.storeLanguagePreference(chatId, args.language);
+					break;
+				case 'get_language_preference':
+					resultPayload = await this.actionGetLanguagePreference(args, chatId);
+					break;
 				default:
 					this.logger.error(`Action ${ actionName } not implemented.`);
 					throw new Error(`Action ${ actionName } not implemented`);
@@ -5097,39 +5136,97 @@ JSON Response:`;
 	async actionFetchTopTokens(args) {
 		const functionName = 'actionFetchTopTokens';
 		this.logger.entry(functionName, { args });
-		let { sort_by = 'marketCap', order = 'asc', limit = '10', page = '1' } = args;
-		limit = 10;
-		try {
-			this.logger.info(`Fetching top tokens sorted by ${ sort_by } in ${ order } order...`);
 
-			// Map to Vybe API parameters
+		// Extraer parámetros con valores por defecto
+		let { sort_by = 'marketCap', order = 'desc', limit = '10', page = '1' } = args;
+
+		try {
+			// Mapeo de nombres de campos que el LLM podría usar a los campos válidos en la API de Vybe
+			const fieldMapping = {
+				'price_change_24h': 'price1d',
+				'price_change_1d': 'price1d',
+				'price_change_7d': 'price7d',
+				'market_cap': 'marketCap',
+				'volume_24h': 'marketCap', // Ya que volumen no está disponible como filtro, usamos marketCap como proxy
+				'volume': 'marketCap',
+				'holders': 'marketCap', // Si holders no está disponible, usar marketCap como proxy
+				'trending': 'marketCap',  // Si trending no está disponible, usar marketCap como proxy
+			};
+
+			// Aplicar mapeo si existe, o usar el valor original si no hay mapeo
+			const apiSortField = fieldMapping[sort_by.toLowerCase()] || sort_by;
+
+			this.logger.info(`Fetching top tokens sorted by ${ sort_by } (mapped to API field: ${ apiSortField }) in ${ order } order...`);
+
+			// Construir parámetros de ordenación según dirección
 			const sortParam = order.toLowerCase() === 'asc' ?
-				{ sortByAsc: sort_by } :
-				{ sortByDesc: sort_by };
+				{ sortByAsc: apiSortField } :
+				{ sortByDesc: apiSortField };
 
 			const tokensData = await VybeService.getTokensSummary({
 				...sortParam,
-				limit: parseInt(limit),
-				page: parseInt(page),
+				limit: parseInt(limit) || 10, // Asegurar un valor numérico por defecto
+				page: parseInt(page) || 1,    // Asegurar un valor numérico por defecto
 			});
 
-			this.logger.info('Top tokens data received:', tokensData);
+			if(!tokensData || !tokensData.data || !Array.isArray(tokensData.data)) {
+				this.logger.warn(`Received invalid or empty data from VybeService.getTokensSummary`);
+				return {
+					sortBy: sort_by,
+					order,
+					page: parseInt(page) || 1,
+					limit: parseInt(limit) || 10,
+					tokens: [],
+					message: 'No token data available or empty response received',
+				};
+			}
 
-			const result = {
-				sortBy: sort_by,
+			// Post-procesamiento: si el campo original de ordenación era 'price_change_24h' y usamos 'price1d',
+			// podríamos querer re-etiquetar esto en la respuesta para mayor claridad
+			const mappedResponse = {
+				sortBy: sort_by, // Mantener el original solicitado para claridad
+				mappedSortBy: apiSortField, // Incluir el campo mapeado realmente usado
 				order,
-				page: parseInt(page),
-				limit: parseInt(limit),
-				tokens: tokensData,
+				page: parseInt(page) || 1,
+				limit: parseInt(limit) || 10,
+				tokens: tokensData.data.map(token => {
+					// Opcionalmente, puedes transformar o enriquecer los tokens aquí
+					// Por ejemplo, añadir campos derivados o re-mapear nombres
+
+					// Si el token tiene price1d pero se solicitó price_change_24h, renombrarlo para claridad
+					if(sort_by === 'price_change_24h' && token.price1d !== undefined) {
+						token.price_change_24h = token.price1d;
+					}
+
+					return token;
+				}),
 			};
 
-			this.logger.success(`Completed ${ functionName }`);
+			this.logger.success(`Completed ${ functionName } with ${ mappedResponse.tokens.length } tokens`);
 			this.logger.exit(functionName);
-			return result;
+			return mappedResponse;
+
 		} catch(error) {
+			// Mejorar manejo de errores con información más específica
 			this.logger.error(`Failed in ${ functionName }`, error);
+
+			// Extraer mensaje específico del error de la API si está disponible
+			let errorMessage = error.message || 'Unknown error';
+			let apiErrorDetails = '';
+
+			if(errorMessage.includes('Invalid sort value')) {
+				const match = errorMessage.match(/Valid sorts for this endpoint are: '([^']+)'/);
+				if(match && match[1]) {
+					apiErrorDetails = `Available sort fields: ${ match[1] }`;
+
+					// Sugerir alternativa basada en el campo solicitado
+					const suggestion = fieldMapping[sort_by.toLowerCase()] || 'marketCap';
+					apiErrorDetails += `. Try using '${ suggestion }' instead of '${ sort_by }'.`;
+				}
+			}
+
 			this.logger.exit(functionName, { error: true });
-			throw new Error(`Failed to fetch top tokens: ${ error.message }`);
+			throw new Error(`Failed to fetch top tokens: ${ errorMessage }${ apiErrorDetails ? ' - ' + apiErrorDetails : '' }`);
 		}
 	}
 
@@ -6766,6 +6863,53 @@ JSON Response:`;
 		const result = await this._getMemoryItemByKey(chatId, 'notification_preferences');
 		this.logger.exit(functionName, { found: result?.found });
 		// Si se encontró, result.value será un objeto; si no, será null.
+		return result;
+	}
+
+	/**
+	 * Almacena la preferencia de idioma del usuario
+	 * @param {number} chatId - El ID del chat
+	 * @param {string} language - Código del idioma preferido (ej: 'es', 'en', 'fr')
+	 * @returns {Promise<Object>} Resultado con el item almacenado
+	 */
+	async storeLanguagePreference(chatId, language) {
+		const functionName = 'storeLanguagePreference';
+		this.logger.entry(functionName, { chatId, language });
+
+		if(!language || typeof language !== 'string') {
+			this.logger.error('Idioma inválido proporcionado', { language });
+			throw new Error('Se requiere un código de idioma válido');
+		}
+
+		// Normaliza el código de idioma (convierte a minúsculas y elimina espacios)
+		const normalizedLanguage = language.toLowerCase().trim();
+
+		try {
+			const result = await this.actionRememberInfo(chatId, {
+				key: 'preferred_language',
+				value: normalizedLanguage,
+				source: 'user',
+				confidence: 1.0,
+			});
+
+			this.logger.success(`Preferencia de idioma almacenada: ${ normalizedLanguage }`);
+			this.logger.exit(functionName, result);
+			return result;
+		} catch(error) {
+			this.logger.error(`Error al almacenar preferencia de idioma`, error);
+			this.logger.exit(functionName, { error: true });
+			throw error;
+		}
+	}
+
+	/**
+	 * Action: Recupera la preferencia de idioma almacenada del usuario
+	 */
+	async actionGetLanguagePreference(args, chatId) {
+		const functionName = 'actionGetLanguagePreference';
+		this.logger.entry(functionName, { chatId });
+		const result = await this._getMemoryItemByKey(chatId, 'preferred_language');
+		this.logger.exit(functionName, { found: result?.found });
 		return result;
 	}
 
